@@ -1,0 +1,51 @@
+# Copy to config/clients/<client-id>.yaml and fill in.
+# Validate with: npm run docent -- check-config --client <client-id>
+client:
+  id: acme            # lowercase, digits, dashes; names the contracts/ and logs/ folders
+  name: Acme Design System
+
+source:
+  # Either a git repo Docent clones (shallow, read-only)…
+  type: git
+  url: https://github.com/acme/design-system.git
+  ref: main
+  # subdir: packages/ui   # if the design system lives inside a monorepo
+  #
+  # …or a checkout already on disk:
+  # type: local
+  # path: ../acme-design-system
+
+ingestion:
+  components:
+    - extractor: react-tsx
+      include: ["src/components/**/*.tsx"]
+      exclude: ["**/*.stories.tsx", "**/*.test.tsx"]
+      # importPath: "@acme/ui"                 # a package import, or
+      # importPath: "@/components/{basename}"  # a per-file template
+
+  tokens:
+    # Pick whichever match how the client stores tokens; several can be combined.
+    - extractor: css-variables
+      include: ["src/styles/tokens.css"]
+      modes:
+        ":root": light
+        "[data-theme='dark']": dark
+    # - extractor: tailwind-theme
+    #   include: ["tailwind.config.{js,ts,cjs,mjs}"]
+    # - extractor: dtcg-json            # W3C design tokens / Style Dictionary JSON
+    #   include: ["tokens/**/*.json"]
+    #   mode: light
+
+  defaultMode: light
+
+  # Optional: the client's own machine-readable component inventory.
+  # manifest:
+  #   path: components.json
+  #   itemsPath: components
+  #   fields: { id: id, name: name, files: files, status: status, category: category, notes: [description] }
+
+  docs:
+    components: ["docs/components/**/*.md"]
+    tokens: ["docs/tokens/**/*.md"]
+
+  placeholders: [TBD, TODO, Unknown, N/A]

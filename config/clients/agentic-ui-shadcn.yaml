@@ -1,0 +1,48 @@
+# First Docent test subject: GO Design's own shadcn/ui implementation repo.
+client:
+  id: agentic-ui-shadcn
+  name: Agentic UI (shadcn/ui)
+
+source:
+  type: git
+  url: https://github.com/godesign27/agentic-ui-shadcn.git
+  ref: main
+
+ingestion:
+  components:
+    - extractor: react-tsx
+      include: ["src/components/ui/**/*.tsx"]
+
+  tokens:
+    - extractor: css-variables
+      include: ["src/index.css"]
+      modes:
+        ":root": light
+        ".dark": dark
+    - extractor: tailwind-theme
+      include: ["tailwind.config.{js,ts,cjs,mjs}"]
+
+  defaultMode: light
+
+  manifest:
+    path: components/COMPONENTS_INDEX.json
+    itemsPath: components
+    fields:
+      id: id
+      name: name
+      files: files
+      status: status
+      category: category
+      importPath: importPath
+      notes: [propsNotes, a11yNotes]
+
+  docs:
+    components: ["COMPONENTS_INDEX.md", "ACCESSIBILITY.md", "src/components/**/*.md"]
+    tokens: ["TOKENS_REFERENCE.md", "BRAND_THEMING.md"]
+
+  placeholders:
+    - Unknown
+    - See component source for details.
+    - Follow shadcn/ui accessibility patterns.
+    - TBD
+    - TODO

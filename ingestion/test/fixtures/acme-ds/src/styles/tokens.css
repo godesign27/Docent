@@ -1,0 +1,25 @@
+@layer base {
+  :root {
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+    --ring: #2563eb;
+    --radius: 0.5rem;
+    --focus-ring: var(--ring);
+    --tw-ring-offset: 2px;
+    --radix-thing: 10px;
+  }
+
+  .dark {
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+    --overlay: rgb(0 0 0 / 0.8);
+  }
+
+  .brand-sunset {
+    --primary: 20 90% 50%;
+  }
+}
+
+:root {
+  --ring: #1d4ed8;
+}

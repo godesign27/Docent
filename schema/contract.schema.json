@@ -1,0 +1,770 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "docentVersion": {
+      "type": "string"
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "local",
+            "git"
+          ]
+        },
+        "location": {
+          "type": "string"
+        },
+        "ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subdir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "location",
+        "ref",
+        "commit",
+        "subdir"
+      ],
+      "additionalProperties": false
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "contentHash": {
+      "type": "string",
+      "description": "sha256 of the contract body excluding generatedAt; changes only when the extracted design system changes"
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable slug derived from the source file name"
+          },
+          "name": {
+            "type": "string"
+          },
+          "importPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "importPathSource": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "manifest",
+                  "config",
+                  "tsconfig-paths"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Exported identifier, e.g. CardHeader"
+                },
+                "primary": {
+                  "type": "boolean",
+                  "description": "True for the part the module is named after"
+                },
+                "element": {
+                  "description": "Rendered host element or primitive when statically visible",
+                  "type": "string"
+                },
+                "props": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "description": "Type as written in source"
+                      },
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "values": {
+                        "description": "Allowed literal values, when the type is a closed set",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "origin": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "variant"
+                        ],
+                        "description": "declared = written in a props type; variant = derived from a variant definition (e.g. cva)"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "type",
+                      "required",
+                      "origin"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "extends": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Types whose props are inherited but not expanded, e.g. React.ButtonHTMLAttributes<HTMLButtonElement>"
+                },
+                "variants": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string",
+                            "description": "Path relative to the design-system root"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "file"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "values",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "description": "Path relative to the design-system root"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "file"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "primary",
+                "props",
+                "extends",
+                "variants",
+                "description",
+                "source"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "otherExports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Non-component value exports, e.g. buttonVariants"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "External packages imported by the component"
+          },
+          "tokenRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of design tokens referenced by the component's styles"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "docs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "heading": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "Raw markdown of the matched section, unparsed"
+                }
+              },
+              "required": [
+                "file",
+                "heading",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "category": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "notes": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "description": "Path relative to the design-system root"
+                      },
+                      "line": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "file"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "category",
+                  "notes",
+                  "source"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the client's own component inventory says about this component, placeholders removed"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "importPath",
+          "importPathSource",
+          "files",
+          "parts",
+          "otherExports",
+          "dependencies",
+          "tokenRefs",
+          "description",
+          "docs",
+          "manifest"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name as authored, e.g. --primary or color.brand.primary"
+          },
+          "cssVariable": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "color",
+              "dimension",
+              "number",
+              "fontFamily",
+              "fontWeight",
+              "duration",
+              "cubicBezier",
+              "shadow",
+              "animation",
+              "other",
+              "unknown"
+            ]
+          },
+          "typeEvidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "declared",
+                  "tailwind-section",
+                  "value-format"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "color",
+              "typography",
+              "spacing",
+              "radius",
+              "elevation",
+              "motion",
+              "breakpoint",
+              "layout",
+              "other",
+              "uncategorized"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "raw": {
+                  "type": "string",
+                  "description": "Value exactly as written in source"
+                },
+                "format": {
+                  "description": "Value encoding when known, e.g. hsl-channels",
+                  "type": "string"
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "description": "Path relative to the design-system root"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "file"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "raw",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Keyed by mode, e.g. light / dark / default"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of tokens this token's value depends on"
+          },
+          "tailwind": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "section": {
+                  "type": "string",
+                  "description": "Tailwind theme section, e.g. colors, borderRadius"
+                },
+                "key": {
+                  "type": "string",
+                  "description": "Utility key, e.g. primary-foreground"
+                },
+                "exampleClasses": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "description": "Path relative to the design-system root"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "file"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "section",
+                "key",
+                "exampleClasses",
+                "source"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "documented": {
+            "description": "Whether token docs mention this token; null when no token docs are configured",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "cssVariable",
+          "type",
+          "typeEvidence",
+          "category",
+          "values",
+          "references",
+          "tailwind",
+          "description",
+          "documented"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "items": {},
+      "description": "Reserved: populated from Phase 2"
+    },
+    "governance": {
+      "type": "array",
+      "items": {},
+      "description": "Reserved: populated from Phase 2"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier: kind + subject, so gaps can be diffed across runs"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "parse-error",
+              "no-components-found",
+              "no-tokens-found",
+              "unresolvable-config-value",
+              "framework-defaults-not-captured",
+              "missing-description",
+              "missing-usage-docs",
+              "placeholder-documentation",
+              "no-primary-export",
+              "props-not-resolved",
+              "inherited-props-not-expanded",
+              "import-path-unknown",
+              "not-in-manifest",
+              "manifest-entry-without-source",
+              "non-token-value",
+              "unknown-token-type",
+              "unresolved-token-reference",
+              "missing-default-mode",
+              "conflicting-token-definition",
+              "undocumented-token"
+            ]
+          },
+          "subject": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "component",
+                  "token",
+                  "source",
+                  "ingestion"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Path relative to the design-system root"
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "file"
+            ],
+            "additionalProperties": false
+          },
+          "suggestion": {
+            "description": "What the design-system team could add to close the gap",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "kind",
+          "subject",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "number"
+        },
+        "componentParts": {
+          "type": "number"
+        },
+        "tokens": {
+          "type": "number"
+        },
+        "gaps": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "number"
+            },
+            "warning": {
+              "type": "number"
+            },
+            "info": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "additionalProperties": false
+        },
+        "filesScanned": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "components",
+        "componentParts",
+        "tokens",
+        "gaps",
+        "filesScanned"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "docentVersion",
+    "client",
+    "source",
+    "generatedAt",
+    "contentHash",
+    "modes",
+    "components",
+    "tokens",
+    "patterns",
+    "governance",
+    "gaps",
+    "stats"
+  ],
+  "additionalProperties": false
+}

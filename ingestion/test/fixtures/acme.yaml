@@ -1,0 +1,28 @@
+client:
+  id: acme-fixture
+  name: Acme Fixture
+source:
+  type: local
+  path: ./acme-ds
+ingestion:
+  components:
+    - extractor: react-tsx
+      include: ["src/components/**/*.tsx"]
+  tokens:
+    - extractor: css-variables
+      include: ["src/styles/**/*.css"]
+      modes: { ":root": light, ".dark": dark }
+    - extractor: tailwind-theme
+      include: ["tailwind.config.ts"]
+    - extractor: dtcg-json
+      include: ["tokens/**/*.json"]
+      mode: light
+  defaultMode: light
+  manifest:
+    path: components.json
+    itemsPath: components
+    fields: { id: key, name: title, files: paths, status: lifecycle, category: group, notes: [a11y] }
+  docs:
+    components: ["docs/**/*.md"]
+    tokens: ["docs/tokens.md"]
+  placeholders: [TBD, TODO]

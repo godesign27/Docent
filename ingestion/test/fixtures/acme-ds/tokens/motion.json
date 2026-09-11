@@ -1,0 +1,11 @@
+{
+  "motion": {
+    "$type": "duration",
+    "fast": { "$value": "120ms", "$description": "Hover and press feedback" },
+    "slow": { "$value": "{motion.fast}" }
+  },
+  "space": {
+    "4": { "value": "16px", "type": "dimension" },
+    "gutter": { "value": "{space.missing}" }
+  }
+}

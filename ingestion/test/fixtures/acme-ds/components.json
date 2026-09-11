@@ -1,0 +1,27 @@
+{
+  "components": [
+    {
+      "key": "acme:button",
+      "title": "Button",
+      "paths": ["src/components/button.tsx"],
+      "lifecycle": "stable",
+      "group": "Actions",
+      "a11y": "Use a real button element for actions."
+    },
+    {
+      "key": "acme:dialog",
+      "title": "Dialog",
+      "paths": ["src/components/dialog.tsx"],
+      "lifecycle": "stable",
+      "group": "TBD",
+      "a11y": "TODO"
+    },
+    {
+      "key": "acme:tooltip",
+      "title": "Tooltip",
+      "paths": ["src/components/tooltip.tsx"],
+      "lifecycle": "beta",
+      "group": "Overlay"
+    }
+  ]
+}

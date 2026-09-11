@@ -1,0 +1,34 @@
+{
+  "name": "docent",
+  "version": "0.1.0",
+  "description": "A reusable concierge layer that lets engineering agents safely query any enterprise design system.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "bin": {
+    "docent": "./bin/docent.js"
+  },
+  "scripts": {
+    "docent": "tsx ingestion/cli.ts",
+    "ingest": "tsx ingestion/cli.ts ingest",
+    "schema:export": "tsx schema/export-json-schema.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "postcss": "^8.5.6",
+    "tinyglobby": "^0.2.15",
+    "typescript": "~5.9.3",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.6",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+*.log
+
+# Local clones of client repos made during ingestion
+.docent/
+
+# Generated per-client output. Client contracts and audit logs never live in
+# the core repo — that keeps one client's data out of every other clone.
+contracts/*
+!contracts/README.md
+logs/*
+!logs/README.md
+
+.env
+.env.*
