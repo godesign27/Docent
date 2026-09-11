@@ -10,7 +10,7 @@ import { createMcpServer } from "../concierge/mcp.js";
 import { EvalBatch, runEval } from "../concierge/eval.js";
 import { startHttpServer } from "../concierge/http.js";
 import { checkIsolation } from "../concierge/isolation.js";
-import { JsonlAuditLog, JsonlReviewStore, loadContract, loadSources, requestLogPath, reviewLogPath } from "../concierge/node.js";
+import { JsonlAuditLog, JsonlReviewStore, LiveConcierge, loadContract, loadSources, requestLogPath, reviewLogPath } from "../concierge/node.js";
 import { DOCENT_VERSION, ingest } from "../ingestion/ingest.js";
 import { consoleSummary, writeOutputs } from "../ingestion/report.js";
 import { resolveSource } from "../ingestion/source.js";
@@ -340,22 +340,35 @@ async function main(): Promise<number> {
       return response.status === "error" ? 1 : 0;
     }
 
+    // A server stays up across re-ingestion, so it reloads the contract when ingestion rewrites it.
+    const live = new LiveConcierge(
+      config,
+      {
+        audit: new JsonlAuditLog(requestLogPath(config.client.id), config.client.id),
+        reviews: new JsonlReviewStore(reviewLogPath(config.client.id), config.client.id),
+        policy: config.escalation,
+        domains: config.specialists,
+        docentVersion: DOCENT_VERSION,
+      },
+      (message) => console.error(`docent: ${message}`),
+    );
+
     if (values.http) {
       const host = values.host ?? "127.0.0.1";
       const port = Number(values.port ?? process.env.PORT ?? 3333);
-      await startHttpServer(concierge, {
+      await startHttpServer(live, {
         host,
         port,
         token: process.env.DOCENT_TOKEN,
         docentVersion: DOCENT_VERSION,
-        health: { client: contract.client.id, contractHash: contract.contentHash, sourceCommit: contract.source.commit, docentVersion: DOCENT_VERSION },
+        health: () => ({ ...live.contractInfo, docentVersion: DOCENT_VERSION }),
       });
       console.error(`docent: serving ${contract.client.name} at http://${host}:${port}/mcp${process.env.DOCENT_TOKEN ? " (bearer token required)" : ""}`);
       return new Promise<number>(() => {});
     }
 
     // stdout belongs to the MCP protocol; everything human-readable goes to stderr.
-    const server = createMcpServer(concierge, { docentVersion: DOCENT_VERSION, transport: "stdio" });
+    const server = createMcpServer(live, { docentVersion: DOCENT_VERSION, transport: "stdio" });
     await server.connect(new StdioServerTransport());
     console.error(`docent: serving ${contract.client.name} (${contract.stats.components} components, contract ${contract.contentHash.slice(0, 19)}…) over stdio`);
     process.stdin.on("close", () => process.exit(0));

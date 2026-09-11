@@ -112,6 +112,9 @@ export interface ConciergeOptions {
 
 const PENDING: ValidationResult = { passed: false, checks: [] };
 
+/** What a transport (MCP over stdio or HTTP) needs from a concierge. */
+export type ConciergeService = Pick<Concierge, "clientName" | "canDistribute" | "domains" | "ask" | "getComponent" | "getFoundation" | "checkReview">;
+
 export class Concierge {
   private readonly contract: Contract;
   private readonly audit: AuditLog;
@@ -147,6 +150,11 @@ export class Concierge {
 
   get canDistribute(): boolean {
     return this.distributor !== null;
+  }
+
+  /** The contract identity this concierge answers from. */
+  get contractInfo() {
+    return { client: this.contract.client.id, contractHash: this.contract.contentHash, contractGeneratedAt: this.contract.generatedAt, sourceCommit: this.contract.source.commit };
   }
 
   private provenance() {

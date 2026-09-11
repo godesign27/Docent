@@ -1,12 +1,12 @@
 /** Node adapters: contracts and audit logs on the local filesystem, one folder per client. */
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DOCENT_ROOT, outputDir } from "../config/load.js";
 import type { ClientConfig } from "../config/schema.js";
 import { CONTRACT_SCHEMA_VERSION, Contract } from "../schema/contract.js";
 import { ReviewRecord } from "../schema/response.js";
-import type { AuditEntry, AuditLog, ReviewStore } from "./concierge.js";
+import { Concierge, type AuditEntry, type AuditLog, type ConciergeOptions, type ConciergeService, type ReviewStore } from "./concierge.js";
 
 export function loadContract(config: ClientConfig): Contract {
   const path = join(outputDir(config), "contract.json");
@@ -119,4 +119,67 @@ export class JsonlReviewStore implements ReviewStore {
     appendFileSync(this.path, JSON.stringify({ type: "decided", id, status: decision.status, decision: record }) + "\n");
     return { ...review, status: decision.status, decision: record };
   }
+}
+
+/**
+ * A concierge that picks up a re-ingested contract without a restart, so a long-running server
+ * (an MCP client keeps one open for days) never answers from a design system that has since changed.
+ * Checked on every request; a half-written ingestion (contract and snapshot disagree) keeps the old one.
+ */
+export class LiveConcierge implements ConciergeService {
+  private current: Concierge;
+  private stamp: string;
+
+  constructor(
+    private readonly config: ClientConfig,
+    private readonly options: Omit<ConciergeOptions, "contract" | "sources">,
+    private readonly onReload: (message: string) => void = () => {},
+  ) {
+    this.current = this.build();
+    this.stamp = this.fileStamp();
+  }
+
+  private fileStamp(): string {
+    const dir = outputDir(this.config);
+    return ["contract.json", "sources.json"].map((f) => (existsSync(join(dir, f)) ? statSync(join(dir, f)).mtimeMs : 0)).join(":");
+  }
+
+  private build(): Concierge {
+    const contract = loadContract(this.config);
+    return new Concierge({ ...this.options, contract, sources: loadSources(this.config, contract) });
+  }
+
+  private fresh(): Concierge {
+    const stamp = this.fileStamp();
+    if (stamp === this.stamp) return this.current;
+    try {
+      const next = this.build();
+      const before = this.current.contractInfo.contractHash;
+      this.current = next;
+      this.stamp = stamp;
+      if (next.contractInfo.contractHash !== before) {
+        this.onReload(`reloaded contract ${next.contractInfo.contractHash.slice(0, 19)}… (source ${next.contractInfo.sourceCommit?.slice(0, 7) ?? "unknown"})`);
+      }
+    } catch (err) {
+      this.onReload(`kept the previous contract: ${(err as Error).message}`);
+    }
+    return this.current;
+  }
+
+  get clientName() {
+    return this.fresh().clientName;
+  }
+  get canDistribute() {
+    return this.fresh().canDistribute;
+  }
+  get domains() {
+    return this.fresh().domains;
+  }
+  get contractInfo() {
+    return this.fresh().contractInfo;
+  }
+  ask: Concierge["ask"] = (...args) => this.fresh().ask(...args);
+  getComponent: Concierge["getComponent"] = (...args) => this.fresh().getComponent(...args);
+  getFoundation: Concierge["getFoundation"] = (...args) => this.fresh().getFoundation(...args);
+  checkReview: Concierge["checkReview"] = (...args) => this.fresh().checkReview(...args);
 }

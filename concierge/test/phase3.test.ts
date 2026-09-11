@@ -10,6 +10,7 @@ import { resolveSource } from "../../ingestion/source.js";
 import type { Contract } from "../../schema/contract.js";
 import { Concierge, MemoryReviewStore, type AuditEntry, type CallerInfo } from "../concierge.js";
 import { checkIsolation } from "../isolation.js";
+import { LiveConcierge } from "../node.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`../../ingestion/test/fixtures/${name}`, import.meta.url));
 const caller: CallerInfo = { name: "test", client: null, transport: "test" };
@@ -185,5 +186,42 @@ describe("isolation checks", () => {
     const { configs, logDir } = workspace();
     configs[1]!.config.client = { ...configs[0]!.config.client };
     expect(failed(await checkIsolation(configs, { docentVersion: "test", logDir }))).toContain("unique-client-ids");
+  });
+});
+
+describe("a long-running server", () => {
+  it("answers from a re-ingested contract without a restart, and never from a half-written one", async () => {
+    const root = mkdtempSync(join(tmpdir(), "docent-live-"));
+    const source = join(root, "acme-source");
+    cpSync(fixture("acme-ds"), source, { recursive: true });
+    const config = structuredClone(acme.config);
+    config.source = { type: "local", path: source };
+    config.output = { dir: join(root, "contracts", config.client.id) };
+    const logDir = join(root, "logs");
+    mkdirSync(logDir, { recursive: true });
+    const initial = await buildContract(config, resolveSource(config));
+    writeOutputs(config, initial.contract, initial.sources, { logDir });
+
+    const reloads: string[] = [];
+    const audit = { record() {} };
+    const live = new LiveConcierge(config, { audit, policy: config.escalation, domains: config.specialists, reviews: new MemoryReviewStore(), docentVersion: "test" }, (m) => reloads.push(m));
+    const ask = () => live.ask({ question: "How do I use KanbanBoard?" }, caller);
+    expect((await ask()).status).toBe("not-found");
+
+    // The design system gains a component and is re-ingested.
+    writeFileSync(join(source, "src/components/KanbanBoard.tsx"), "export function KanbanBoard({ title }: { title: string }) {\n  return <section>{title}</section>\n}\n");
+    const rebuilt = await buildContract(config, resolveSource(config));
+
+    // Ingestion has written the contract but not yet the snapshot: keep answering from the old pair.
+    writeFileSync(join(config.output.dir!, "contract.json"), JSON.stringify(rebuilt.contract, null, 2));
+    expect((await ask()).status).toBe("not-found");
+    expect(reloads.at(-1)).toContain("kept the previous contract");
+
+    writeOutputs(config, rebuilt.contract, rebuilt.sources, { logDir });
+    const after = await ask();
+    expect(after.components.map((c) => c.id)).toEqual(["KanbanBoard"]);
+    expect(after.provenance.contractHash).toBe(rebuilt.contract.contentHash);
+    expect(live.contractInfo.contractHash).toBe(rebuilt.contract.contentHash);
+    expect(reloads.at(-1)).toContain("reloaded contract");
   });
 });

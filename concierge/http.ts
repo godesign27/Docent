@@ -9,7 +9,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Concierge } from "./concierge.js";
+import type { ConciergeService } from "./concierge.js";
 import { createMcpServer } from "./mcp.js";
 
 export interface HttpOptions {
@@ -17,8 +17,8 @@ export interface HttpOptions {
   port: number;
   token: string | undefined;
   docentVersion: string;
-  /** Contract identity reported by /healthz. */
-  health: Record<string, unknown>;
+  /** Contract identity reported by /healthz; a function when the contract can change while serving. */
+  health: Record<string, unknown> | (() => Record<string, unknown>);
 }
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -50,7 +50,7 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : undefined;
 }
 
-export function startHttpServer(concierge: Concierge, options: HttpOptions): Promise<Server> {
+export function startHttpServer(concierge: ConciergeService, options: HttpOptions): Promise<Server> {
   assertSafeBinding(options.host, options.token);
 
   const server = createServer(async (req, res) => {
@@ -59,7 +59,7 @@ export function startHttpServer(concierge: Concierge, options: HttpOptions): Pro
       res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
     };
 
-    if (url.pathname === "/healthz" && req.method === "GET") return send(200, { status: "ok", ...options.health });
+    if (url.pathname === "/healthz" && req.method === "GET") return send(200, { status: "ok", ...(typeof options.health === "function" ? options.health() : options.health) });
     if (url.pathname !== "/mcp") return send(404, { error: "Not found. MCP is served at /mcp." });
     if (!authorized(req, options.token)) {
       res.setHeader("www-authenticate", 'Bearer realm="docent"');

@@ -1,10 +1,10 @@
 /** Exposes the concierge as an MCP server. Transport-agnostic. */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AskInput, CheckReviewInput, DocentResponse, FetchResponse, GetComponentInput, GetFoundationInput, ReviewResponse } from "../schema/response.js";
-import type { CallerInfo, Concierge } from "./concierge.js";
+import type { CallerInfo, ConciergeService } from "./concierge.js";
 
 export function createMcpServer(
-  concierge: Concierge,
+  concierge: ConciergeService,
   options: { docentVersion: string; transport: CallerInfo["transport"]; /** e.g. from an HTTP header, when the MCP handshake isn't visible */ callerHint?: string },
 ): McpServer {
   const system = concierge.clientName;
