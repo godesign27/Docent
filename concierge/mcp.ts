@@ -3,7 +3,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AskInput, CheckReviewInput, DocentResponse, FetchResponse, GetComponentInput, GetFoundationInput, ReviewResponse } from "../schema/response.js";
 import type { CallerInfo, Concierge } from "./concierge.js";
 
-export function createMcpServer(concierge: Concierge, options: { docentVersion: string; transport: CallerInfo["transport"] }): McpServer {
+export function createMcpServer(
+  concierge: Concierge,
+  options: { docentVersion: string; transport: CallerInfo["transport"]; /** e.g. from an HTTP header, when the MCP handshake isn't visible */ callerHint?: string },
+): McpServer {
   const system = concierge.clientName;
   const server = new McpServer(
     { name: "docent", version: options.docentVersion },
@@ -24,7 +27,7 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
   const callerFor = (caller: string | undefined): CallerInfo => {
     const client = server.server.getClientVersion();
     return {
-      name: caller ?? client?.name ?? "unknown",
+      name: caller ?? client?.name ?? options.callerHint ?? "unknown",
       client: client ? { name: client.name, version: client.version } : null,
       transport: options.transport,
     };
@@ -82,6 +85,7 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
           "Returns every file to write (the components, the components they depend on, and shared files such as lib/utils), " +
           "the npm packages to install with versions, the path alias the source expects, and step-by-step instructions. " +
           "Files are byte-identical to the design system at the contract's commit. Pass installed to skip components already in the project. " +
+          "Names in unresolved do not exist, so do not build them; a name in ambiguous is exported by several components, so request one of its candidates by id. " +
           "Call get_foundation first in a new project.",
         inputSchema: GetComponentInput.shape,
         outputSchema: FetchResponse.shape,

@@ -376,6 +376,7 @@ export class Concierge {
       pathAliases: this.contract.foundation?.pathAliases ?? [],
       instructions: [],
       unresolved: [],
+      ambiguous: [],
       rejected: [],
       alternatives: [],
       provenance: this.provenance(),

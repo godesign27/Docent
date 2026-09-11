@@ -4,7 +4,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "0.4.0"
+      "const": "0.5.0"
     },
     "docentVersion": {
       "type": "string"
@@ -675,7 +675,8 @@
                 "enum": [
                   "declared",
                   "tailwind-section",
-                  "value-format"
+                  "value-format",
+                  "css-usage"
                 ]
               },
               {
@@ -1157,6 +1158,14 @@
                   "null"
                 ]
               },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "repository",
+                  "agreed"
+                ],
+                "description": "repository: written in the design system; agreed: recorded in the Docent config during onboarding"
+              },
               "source": {
                 "type": "object",
                 "properties": {
@@ -1173,7 +1182,8 @@
                 "required": [
                   "file"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "For agreed rules, the Docent client config that records them"
               }
             },
             "required": [
@@ -1183,6 +1193,7 @@
               "category",
               "response",
               "reference",
+              "origin",
               "source"
             ],
             "additionalProperties": false
@@ -1249,6 +1260,7 @@
               "missing-usage-docs",
               "placeholder-documentation",
               "no-primary-export",
+              "duplicate-component-name",
               "props-not-resolved",
               "inherited-props-not-expanded",
               "import-path-unknown",

@@ -110,6 +110,7 @@ export async function loadGovernance(
   ctx: Context,
   config: GovernanceConfig | undefined,
   authored: { patterns: PatternContract[]; components: ComponentContract[] },
+  agreedRulesFile = "docent-config",
 ): Promise<Governance> {
   const rules: GovernanceRule[] = [];
   const counters = new Map<string, number>();
@@ -154,6 +155,7 @@ export async function loadGovernance(
           category: source.category,
           response: str(field(f.response)),
           reference: str(field(f.reference)),
+          origin: "repository",
           source: anchor >= 0 ? { file, line: lineOf(json.text, anchor) } : { file },
         });
       });
@@ -164,7 +166,7 @@ export async function loadGovernance(
   if (config?.includeAuthoredGuidance ?? true) {
     for (const p of authored.patterns) {
       p.forbidden.forEach((text, i) =>
-        rules.push({ id: `pattern:${p.id}:forbidden-${i + 1}`, rule: text, severity: "unspecified", category: "pattern", response: null, reference: p.source.file, source: p.source }),
+        rules.push({ id: `pattern:${p.id}:forbidden-${i + 1}`, rule: text, severity: "unspecified", category: "pattern", response: null, reference: p.source.file, origin: "repository", source: p.source }),
       );
     }
     for (const c of authored.components) {
@@ -176,10 +178,35 @@ export async function loadGovernance(
           category: "component-usage",
           response: null,
           reference: c.guidance!.source.file,
+          origin: "repository",
           source: c.guidance!.source,
         }),
       );
     }
+  }
+
+  for (const agreed of config?.agreedRules ?? []) {
+    if (rules.some((r) => r.id === agreed.id)) {
+      ctx.gaps.add({
+        severity: "error",
+        kind: "unresolvable-config-value",
+        subject: { type: "rule", id: agreed.id },
+        detail: "governance.agreedRules",
+        message: `governance.agreedRules defines ${agreed.id}, but the design system already has a rule with that id; the agreed rule was left out.`,
+        suggestion: "Give the agreed rule a different id, or set the severity on the repository rule's source instead.",
+      });
+      continue;
+    }
+    rules.push({
+      id: agreed.id,
+      rule: agreed.rule,
+      severity: agreed.severity,
+      category: agreed.category,
+      response: agreed.response ?? null,
+      reference: `Agreed by ${agreed.agreedBy}`,
+      origin: "agreed",
+      source: { file: agreedRulesFile },
+    });
   }
 
   const ids = new Set(rules.map((r) => r.id));
@@ -209,6 +236,12 @@ export async function loadGovernance(
   };
 }
 
+function ownLines(content: string): string[] {
+  const lines = content.split("\n").slice(1);
+  const end = lines.findIndex((l) => /^#{1,6}\s/.test(l));
+  return end === -1 ? lines : lines.slice(0, end);
+}
+
 /** Rules kept as a bullet list under a markdown heading. Each bullet becomes one rule. */
 function markdownRules(
   ctx: Context,
@@ -233,14 +266,14 @@ function markdownRules(
     });
   }
   return sections.flatMap((section) =>
-    section.content
-      .split("\n")
+    // Only the section's own bullets, not those under its sub-headings.
+    (heading ? ownLines(section.content) : section.content.split("\n"))
       .map((line) => line.match(/^\s{0,3}(?:[-*+]|\d+\.)\s+(.+)$/)?.[1])
       .filter((item): item is string => Boolean(item))
       .map((item) => {
         const rule = item.replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1").trim();
         const offset = text.indexOf(item);
-        return { id: nextId(category), rule, severity, category, response: null, reference: file, source: { file, line: lineOf(text, Math.max(0, offset)) } };
+        return { id: nextId(category), rule, severity, category, response: null, reference: file, origin: "repository", source: { file, line: lineOf(text, Math.max(0, offset)) } };
       }),
   );
 }

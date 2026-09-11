@@ -259,7 +259,11 @@ export async function validateFetch(
       if (!source) fail(`${c.id} is not in the contract`);
       else if (source.importPath !== c.importPath || source.name !== c.name) fail(`${c.id} name or import path differs from the contract`);
     }
-    for (const name of response.unresolved) if (index.get(name)) fail(`${name} is reported as not in the design system, but it is`);
+    for (const name of response.unresolved) if (index.lookup(name).length) fail(`${name} is reported as not in the design system, but it is`);
+    for (const a of response.ambiguous) {
+      const actual = index.lookup(a.name).map((c) => c.id).sort().join(",");
+      if (actual !== a.candidates.map((c) => c.id).sort().join(",")) fail(`${a.name} is reported as shared by ${a.candidates.map((c) => c.id).join(", ")}, but the contract says ${actual || "nothing"}`);
+    }
     for (const r of response.rejected) {
       const source = byId.get(r.id);
       if (!source || !inventory || source.manifest !== null) fail(`${r.id} was rejected but is allowed by the inventory`);

@@ -105,7 +105,10 @@ export function renderReport(contract: Contract, diff: ContractDiff): string {
   if (diff.firstRun) out.push("First ingestion for this client.", "");
   else if (diff.unchanged) out.push("No changes: the contract content is identical to the previous run.", "");
   else {
-    const line = (label: string, items: string[]) => items.length && out.push(`- **${label} (${items.length}):** ${items.map((i) => `\`${i}\``).join(", ")}`);
+    const shown = 20;
+    const line = (label: string, items: string[]) =>
+      items.length &&
+      out.push(`- **${label} (${items.length}):** ${items.slice(0, shown).map((i) => `\`${i}\``).join(", ")}${items.length > shown ? `, and ${items.length - shown} more` : ""}`);
     line("Components added", diff.components.added);
     line("Components removed", diff.components.removed);
     line("Tokens added", diff.tokens.added);

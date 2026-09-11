@@ -134,8 +134,22 @@ const RuleSource = z.object({
   severity: z.enum(["critical", "high", "medium", "low", "unspecified"]).default("unspecified"),
 });
 
+/** A rule the design-system owner agreed during onboarding that is not written down in the repo. */
+const AgreedRule = z.object({
+  id: z.string().regex(/^[\w:.-]+$/, "Use letters, digits, _ - : . in rule ids"),
+  rule: z.string().min(1),
+  severity: z.enum(["critical", "high", "medium", "low", "unspecified"]),
+  category: z.string().default("agreed"),
+  /** What an agent should be told when it hits this rule. */
+  response: z.string().optional(),
+  /** Who agreed it and when, e.g. "Jane Doe (design-system owner), 2026-09-11". Shown with the rule. */
+  agreedBy: z.string().min(1),
+});
+
 const GovernanceConfig = z.object({
   rules: z.array(RuleSource).default([]),
+  /** Rules agreed with the client and recorded here, for design systems whose rules aren't written in the repo. */
+  agreedRules: z.array(AgreedRule).default([]),
   /** Import prefixes generated code may use for design-system modules, e.g. @/components/ui/. */
   approvedImports: z.array(z.string()).default([]),
   /** Packages or scopes that may not be used, e.g. @mui/*, antd. */

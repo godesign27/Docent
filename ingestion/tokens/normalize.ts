@@ -12,6 +12,7 @@ import {
   type RawToken,
   type TailwindEntry,
 } from "./values.js";
+import type { TokenUsage } from "../extractors/css-variables.js";
 
 export interface NormalizeInput {
   raw: RawToken[];
@@ -20,6 +21,8 @@ export interface NormalizeInput {
   /** Concatenated token documentation, or null when none is configured. */
   tokenDocs: string | null;
   ignoreCssVariablePrefixes: string[];
+  /** How token CSS uses variables, e.g. hsl(var(--x)); weaker evidence than a Tailwind binding. */
+  usages?: TokenUsage[];
 }
 
 /** `var(--x)`, `hsl(var(--x))`, `hsl(var(--x) / <alpha-value>)` */
@@ -127,6 +130,14 @@ export function normalizeTokens(input: NormalizeInput, gaps: GapCollector): Toke
       role: null,
       documented: null,
     });
+  }
+
+  for (const usage of input.usages ?? []) {
+    const token = tokens.get(cssVarId(usage.variable));
+    if (token && !token.typeEvidence) {
+      token.type = usage.type;
+      token.typeEvidence = "css-usage";
+    }
   }
 
   const all = [...tokens.values()];

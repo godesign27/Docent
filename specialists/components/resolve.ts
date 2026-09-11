@@ -7,7 +7,7 @@ import type { ComponentContract, Contract } from "../../schema/contract.js";
 
 export type Resolution =
   | { kind: "matched"; components: ComponentContract[]; unresolved: string[] }
-  | { kind: "ambiguous"; candidates: ComponentContract[]; unresolved: string[] }
+  | { kind: "ambiguous"; candidates: ComponentContract[]; unresolved: string[]; shared?: AmbiguousName[] }
   | { kind: "not-found"; candidates: ComponentContract[]; unresolved: string[] }
   | { kind: "inventory" };
 
@@ -23,37 +23,70 @@ export function normalizeKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+export interface AmbiguousName {
+  name: string;
+  candidates: ComponentContract[];
+}
+
 export class ComponentIndex {
-  private readonly byKey = new Map<string, ComponentContract>();
+  private readonly byId = new Map<string, ComponentContract>();
+  /** Ids and names, which win over part and type names. */
+  private readonly byName = new Map<string, ComponentContract[]>();
+  private readonly byPart = new Map<string, ComponentContract[]>();
 
   constructor(readonly contract: Contract) {
-    // Ids and names first so they win over part and type names.
     for (const c of contract.components) {
-      for (const key of [c.id, c.name, c.manifest?.id, c.guidance?.id]) this.add(key, c);
-    }
-    for (const c of contract.components) {
-      for (const key of [...c.parts.map((p) => p.name), ...c.typeExports]) this.add(key, c);
+      this.byId.set(c.id, c);
+      for (const key of [c.id, c.name, c.manifest?.id, c.guidance?.id]) add(this.byName, key, c);
+      for (const key of [...c.parts.map((p) => p.name), ...c.typeExports]) add(this.byPart, key, c);
     }
   }
 
-  private add(key: string | null | undefined, c: ComponentContract) {
-    const k = key ? normalizeKey(key) : "";
-    if (k && !this.byKey.has(k)) this.byKey.set(k, c);
+  /**
+   * Every component a name could mean. An exact id is unambiguous; otherwise
+   * two components exporting the same name (e.g. two Toasters) are both returned.
+   */
+  lookup(key: string): ComponentContract[] {
+    const exact = this.byId.get(key);
+    if (exact) return [exact];
+    const k = normalizeKey(key);
+    return this.byName.get(k) ?? this.byPart.get(k) ?? [];
   }
 
+  /** The one component a name means, or undefined when it means none or several. */
   get(key: string): ComponentContract | undefined {
-    return this.byKey.get(normalizeKey(key));
+    const hits = this.lookup(key);
+    return hits.length === 1 ? hits[0] : undefined;
   }
+
+  /** Names that more than one component answers to. */
+  duplicateNames(): AmbiguousName[] {
+    return [...this.byName.values()]
+      .filter((list) => list.length > 1)
+      .map((candidates) => ({ name: candidates[0]!.name, candidates }))
+      .filter((d, i, all) => all.findIndex((o) => normalizeKey(o.name) === normalizeKey(d.name)) === i);
+  }
+}
+
+function add(map: Map<string, ComponentContract[]>, key: string | null | undefined, c: ComponentContract) {
+  const k = key ? normalizeKey(key) : "";
+  if (!k) return;
+  const list = map.get(k) ?? [];
+  if (!list.includes(c)) list.push(c);
+  map.set(k, list);
 }
 
 export function resolveRequest(index: ComponentIndex, question: string, component?: string): Resolution {
   if (component) {
-    const hit = index.get(component);
-    if (hit) return { kind: "matched", components: [hit], unresolved: [] };
+    const hits = index.lookup(component);
+    if (hits.length === 1) return { kind: "matched", components: hits, unresolved: [] };
+    if (hits.length > 1) return { kind: "ambiguous", candidates: hits, unresolved: [], shared: [{ name: component, candidates: hits }] };
     return { kind: "not-found", candidates: search(index.contract, `${component} ${question}`), unresolved: [component] };
   }
 
-  const { strong, weak, unresolved } = findMentions(index, question);
+  const { strong, weak, unresolved, ambiguous } = findMentions(index, question);
+  // A name several components share is never settled by picking one.
+  if (ambiguous.length) return { kind: "ambiguous", candidates: [...new Set(ambiguous.flatMap((a) => a.candidates))], unresolved, shared: ambiguous };
   if (strong.length === 0 && weak.length === 0 && unresolved.length === 0 && INVENTORY_QUESTION.test(question)) {
     return { kind: "inventory" };
   }
@@ -76,14 +109,23 @@ export function findMentions(index: ComponentIndex, question: string) {
   const strong: ComponentContract[] = [];
   const weak: ComponentContract[] = [];
   const unresolved: string[] = [];
+  const ambiguous: AmbiguousName[] = [];
 
   for (let i = 0; i < tokens.length; ) {
     let matched = false;
     for (let n = Math.min(3, tokens.length - i); n >= 1; n--) {
       const words = tokens.slice(i, i + n);
-      const hit = index.get(words.join(""));
-      if (!hit) continue;
+      const hits = index.lookup(n === 1 ? words[0]! : words.join(""));
+      if (hits.length === 0) continue;
       const codeLike = words.some((w) => /[A-Z]/.test(w) || w.includes(":") || backticked.has(w));
+      if (hits.length > 1) {
+        const name = words.join("");
+        if (codeLike && !ambiguous.some((a) => a.name === name)) ambiguous.push({ name, candidates: hits });
+        i += n;
+        matched = true;
+        break;
+      }
+      const hit = hits[0]!;
       const bucket = codeLike ? strong : weak;
       if (!bucket.includes(hit)) bucket.push(hit);
       i += n;
@@ -97,7 +139,7 @@ export function findMentions(index: ComponentIndex, question: string) {
     if (looksLikeComponent && !NOT_COMPONENT_NAMES.has(normalizeKey(token)) && !unresolved.includes(token)) unresolved.push(token);
     i += 1;
   }
-  return { strong, weak: weak.filter((c) => !strong.includes(c)), unresolved };
+  return { strong, weak: weak.filter((c) => !strong.includes(c)), unresolved, ambiguous };
 }
 
 export function terms(text: string): string[] {

@@ -133,7 +133,7 @@ const Package = z.object({ name: z.string(), version: z.string().nullable(), dev
 export const FetchResponse = z.object({
   requestId: z.string(),
   tool: z.enum(["get_component", "get_foundation"]),
-  status: z.enum(["delivered", "not-found", "rejected", "error"]),
+  status: z.enum(["delivered", "not-found", "rejected", "clarification-needed", "error"]),
   message: z.string(),
   components: z
     .array(z.object({ id: z.string(), inventoryId: z.string().nullable(), name: z.string(), importPath: z.string().nullable(), reason: z.string() }))
@@ -143,6 +143,9 @@ export const FetchResponse = z.object({
   pathAliases: z.array(z.object({ alias: z.string(), target: z.string() })),
   instructions: z.array(z.string()),
   unresolved: z.array(z.string()).describe("Requested names that do not exist in this design system"),
+  ambiguous: z
+    .array(z.object({ name: z.string(), candidates: z.array(ComponentRef) }))
+    .describe("Requested names that more than one component exports; not delivered until requested by id"),
   rejected: z.array(z.object({ id: z.string(), name: z.string(), reason: z.string() })).describe("Components that exist in source but may not be used"),
   alternatives: z.array(ComponentRef),
   validation: ValidationResult,

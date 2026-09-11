@@ -8,7 +8,7 @@ import { DOCENT_ROOT } from "../config/load.js";
 import type { ClientConfig } from "../config/schema.js";
 import { CONTRACT_SCHEMA_VERSION, Contract, type ComponentContract } from "../schema/contract.js";
 import { findComponentDocs, parseMarkdown, type MarkdownFile } from "./docs.js";
-import { extractCssVariables } from "./extractors/css-variables.js";
+import { extractCssVariables, type TokenUsage } from "./extractors/css-variables.js";
 import { extractDtcgJson } from "./extractors/dtcg-json.js";
 import { extractReactModule, linkImportedVariants, toPascalCase, type ExtractedModule } from "./extractors/react-tsx.js";
 import { extractTailwindTheme } from "./extractors/tailwind-theme.js";
@@ -77,6 +77,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
   // --- Tokens ----------------------------------------------------------------
   const rawTokens: RawToken[] = [];
   const tailwind: TailwindEntry[] = [];
+  const usages: TokenUsage[] = [];
   for (const extractor of ingestion.tokens) {
     const files = await findFiles(root, extractor.include, extractor.exclude);
     log(`${extractor.extractor}: ${files.length} files`);
@@ -87,6 +88,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
         const css = extractCssVariables(file, text, extractor.modes, ingestion.ignoreCssVariablePrefixes, gaps);
         rawTokens.push(...css.tokens);
         tailwind.push(...css.tailwind);
+        usages.push(...css.usages);
       } else if (extractor.extractor === "tailwind-theme") {
         tailwind.push(...extractTailwindTheme(file, text, gaps));
       } else {
@@ -105,6 +107,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       defaultMode: ingestion.defaultMode,
       tokenDocs: ingestion.docs.tokens.length > 0 ? tokenDocs.map((d) => d.text).join("\n\n") : null,
       ignoreCssVariablePrefixes: ingestion.ignoreCssVariablePrefixes,
+      usages,
     },
     gaps,
   );
@@ -219,13 +222,15 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
         suggestion: "Replace with a token utility, or add a token for this value.",
       });
     }
-    if (analysis.unknownVariables.size > 0) {
+    // Variables the component sets on itself (style={{ "--sidebar-width": ... }}) are its own, not missing tokens.
+    const unknownVariables = [...analysis.unknownVariables].filter(([v]) => !mod.localCssVariables.includes(v));
+    if (unknownVariables.length > 0) {
       gaps.add({
         severity: "info",
         kind: "unresolved-token-reference",
         subject,
-        message: `${name} references CSS variables that are not tokens in this contract: ${[...analysis.unknownVariables].map(([v, line]) => `${v} (line ${line})`).join(", ")}.`,
-        location: { file: mod.file, line: [...analysis.unknownVariables.values()][0]! },
+        message: `${name} references CSS variables that are not tokens in this contract: ${unknownVariables.map(([v, line]) => `${v} (line ${line})`).join(", ")}.`,
+        location: { file: mod.file, line: unknownVariables[0]![1] },
       });
     }
 
@@ -262,6 +267,24 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     });
   }
 
+  // Two components exporting the same name: agents asking for it by name are asked which one they mean.
+  const byName = new Map<string, ComponentContract[]>();
+  for (const component of components) {
+    const key = component.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    byName.set(key, [...(byName.get(key) ?? []), component]);
+  }
+  for (const shared of byName.values()) {
+    if (shared.length < 2) continue;
+    gaps.add({
+      severity: "warning",
+      kind: "duplicate-component-name",
+      subject: { type: "component", id: shared.map((c) => c.id).join("+") },
+      message: `${shared.length} components are named ${shared[0]!.name}: ${shared.map((c) => `${c.id} (${c.files[0]})`).join(", ")}. Agents asking for ${shared[0]!.name} by name are asked to choose by id.`,
+      location: { file: shared[0]!.files[0]! },
+      suggestion: "Rename one of them, or remove the one agents should not use.",
+    });
+  }
+
   for (const entry of manifest ?? []) {
     if (matchedEntries.has(entry)) continue;
     gaps.add({
@@ -288,7 +311,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
 
   // --- Patterns and governance -----------------------------------------------
   const patterns = ingestion.patterns ? await loadPatterns({ root, scanned, gaps }, ingestion.patterns, components) : [];
-  const governance = await loadGovernance({ root, scanned, gaps }, ingestion.governance, { patterns, components });
+  const governance = await loadGovernance({ root, scanned, gaps }, ingestion.governance, { patterns, components }, `config/clients/${config.client.id}.yaml`);
 
   // --- Ingestion-level gaps --------------------------------------------------
   if (ingestion.components.length > 0 && components.length === 0) {
