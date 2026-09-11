@@ -35,7 +35,8 @@ Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
 
 - **Phase 0 — single-client ingestion: built.** Docent reads a design-system repo into a structured, inspectable contract and flags gaps instead of guessing.
 - **Phase 1 — one specialist, end to end: built.** An MCP server whose concierge routes to the Components & contracts specialist: `ask` for contracts, `get_component` / `get_foundation` to fetch source into a project without cloning the design system. Every result is validated against the contract and logged per client.
-- Phase 2 (remaining specialists, real routing, escalation) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+- **Phase 2 — full specialist set and real routing: built.** Tokens & foundations, Patterns & usage and Governance & compliance specialists; evidence-based intent routing that can send one request to several specialists or ask a clarifying question; governance conflicts rejected or escalated to a human review queue by policy; ingestion of patterns, rules and semantic token roles. Measured with a labelled batch of real-world requests (`docent eval`).
+- Phase 3 (multi-client config and isolation checks) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
 ## Getting started
 
@@ -84,15 +85,24 @@ After ingesting, register Docent as an MCP server in the project where the agent
 claude mcp add docent -- node /absolute/path/to/Docent/bin/docent.js serve --client agentic-ui-shadcn
 ```
 
-The agent gets three read-only tools:
+The agent gets four read-only tools:
 
 | Tool | Use |
 |---|---|
+| `ask` | The single entry point. Docent routes the question to the right specialist(s) — components, tokens, patterns, governance — and merges their answers. Pass `code` to check proposed code against the rules before shipping it. |
+| `check_review` | Look up the human decision on a request Docent escalated. |
 | `get_foundation` | Once per project: theme token CSS, Tailwind and PostCSS config, required packages and the `@/` import alias. |
-| `ask` | Before using a component: import path, parts, props, variants, required nesting, forbidden usage, agent rules, accessibility, AI experience metadata, known gaps. |
 | `get_component` | Fetch source for components, e.g. `{ "components": ["Sidebar", "AIAction"] }`. Returns every file to write — including dependencies (Sidebar brings Button, Sheet, Tooltip, `use-mobile`, `lib/utils`) in install order — the npm packages with versions, and instructions. Pass `installed` to skip what the project already has. |
 
 Delivered files are byte-identical to the design system at the ingested commit: ingestion snapshots every deliverable file into `contracts/<client>/sources.json`, the server refuses to start if the snapshot doesn't match the contract's hashes, and every delivery is re-hashed and scope-checked before it is returned. Components that don't exist, or aren't in the client's inventory, are refused. Every call is appended to `logs/<client>/requests.jsonl`. Details: [`concierge/README.md`](concierge/README.md).
+
+### How a request is handled
+
+1. **Routing.** Docent looks for evidence of what the request is about: components named in code style (`Button`, `ui:button`), tokens (`--primary`, `bg-muted`, "token"), patterns ("destructive action", "which component should I use"), and governance (code, "can I", exception requests, restricted packages, raw colors, base-component edits, new dependencies, rule ids). Every specialist with enough evidence gets the request. With no clear evidence Docent searches the design system, and if that doesn't settle it, asks a clarifying question. Every signal and score is recorded in the response and the audit log.
+2. **Specialists answer from the contract only**, and the answers are merged.
+3. **Governance decides.** Findings come from deterministic checks (proven), rule wording (a resemblance), or an exception request. The client's escalation policy turns each into an action — by default: critical violation → **rejected**, high → **escalated**, medium/low → warning; a resemblance never rejects; asking for an exception always goes to a human. Rejected and escalated responses carry no answer content.
+4. **Validation** re-checks everything against the contract — including that each finding quotes its rule exactly and has the action the policy gives — and withholds anything that fails.
+5. **Escalations** open a review in `logs/<client>/reviews.jsonl`. A reviewer runs `docent reviews` and `docent review <id> --approve|--deny --note "…"`; the agent polls `check_review`.
 
 Try it without an agent:
 
@@ -100,7 +110,16 @@ Try it without an agent:
 npm run docent -- ask --client agentic-ui-shadcn "Should I use Dialog or Sheet?"
 npm run docent -- fetch --client agentic-ui-shadcn Sidebar AIAction
 npm run docent -- fetch --client agentic-ui-shadcn --foundation
+npm run docent -- ask --client agentic-ui-shadcn --code src/App.tsx "Is this OK to ship?"
 ```
+
+### Measure routing
+
+```bash
+npm run docent -- eval --client agentic-ui-shadcn
+```
+
+Runs `config/clients/<client>.eval.yaml` — labelled real-world requests with the specialists they should reach and the status, governance outcome, rules, components, tokens and patterns they should produce — without touching the client's logs or review queue.
 
 ### CLI
 
@@ -109,6 +128,9 @@ docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on err
 docent serve  (--client <id> | --config <path>)
 docent ask    (--client <id> | --config <path>) [--component <id>] "<question>"
 docent fetch  (--client <id> | --config <path>) [--json] (<component>... | --foundation)
+docent reviews (--client <id> | --config <path>) [--all]
+docent review  (--client <id> | --config <path>) <review-id> (--approve | --deny) --note "<why>" [--by <name>]
+docent eval   (--client <id> | --config <path>) [--file <batch.yaml>] [--verbose]
 docent check-config (--client <id> | --config <path>)
 docent list-clients
 ```
@@ -125,6 +147,16 @@ docent list-clients
 | `dtcg-json` | W3C design tokens / Style Dictionary JSON | Tokens with declared types, descriptions and aliases |
 
 It also cross-references the client's own component inventory (`manifest`), per-component agent specs such as `*.agent.json` (`specs` — intent, forbidden usage, agent rules, accessibility, AI experience metadata), usage docs in markdown (`docs.components`), token docs (`docs.tokens`), and tsconfig path aliases for import paths.
+
+Governance knowledge is read the same way, through field mappings in config:
+
+| Config | Reads | Produces |
+|---|---|---|
+| `patterns` | Pattern files (JSON) | Required/recommended/optional components (resolved to contract ids), sequence, rules, forbidden list, example |
+| `governance.rules` | Rule files — objects or plain strings | Rules with id, severity, category and the response the client wants agents told; patterns' forbidden lists and components' forbidden usage become rules too |
+| `governance.checks` | — | Maps Docent's deterministic checks (restricted package, unindexed component, raw color, invalid prop value, compound structure, …) to the client's rule ids, so every finding cites the client's own rule |
+| `tokenSemantics` | Semantic token roles | Token meanings and role groups, the "need → use" decision table, forbidden token usage |
+| `escalation` | — | What each kind of finding leads to: reject, escalate or warn, and who reviews |
 
 **Source wins.** Props, variants and exports always come from source. Where a spec disagrees, the contract follows source and records a `spec-drift` gap — for example a required prop the spec forgot to list.
 
@@ -149,8 +181,8 @@ The full list lives in `GapKind` in [`schema/contract.ts`](schema/contract.ts).
 /schema         — contract, request and response schemas (zod + exported JSON Schema); runtime-agnostic
 /config         — per-client configuration and its schema
 /ingestion      — parses a client repo into normalized contracts
-/concierge      — the routing agent, validation gate, audit log and MCP server
-/specialists    — components (Phase 1); tokens, patterns, governance (Phase 2)
+/concierge      — router, concierge, validation gate, audit log, review queue, eval runner, MCP server
+/specialists    — components, tokens, patterns and governance specialists
 /cli            — the docent command
 /contracts      — generated per-client contracts (git-ignored)
 /logs           — per-client audit trail (git-ignored)

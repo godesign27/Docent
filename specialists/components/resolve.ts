@@ -12,11 +12,11 @@ export type Resolution =
   | { kind: "inventory" };
 
 const MAX_WEAK_MATCHES = 3;
-const INVENTORY_QUESTION = /\b(list (all|the|every)?\s*components?|component (inventory|list|catalog)|(what|which) components (are there|exist|are available|can i use)|all (available )?components)\b/i;
+export const INVENTORY_QUESTION = /\b(list (all|the|every)?\s*components?|component (inventory|list|catalog)|(what|which) components (are there|exist|are available|can i use)|all (available )?components)\b/i;
 /** PascalCase words that are tooling, not components someone could be asking for. */
 const NOT_COMPONENT_NAMES = new Set(["typescript", "javascript", "github", "nextjs", "reactdom", "tailwindcss", "variantprops", "componentprops", "forwardref", "radixui", "shadcnui"]);
 const STOPWORDS = new Set(
-  "a an and are as at be but by can do does for from have how i if in into is it its me my need not of on or should so some that the their them then there these this to use used using want what when where which while who why will with without would you your".split(" "),
+  "a an and are as at be but by can do does for from have how i if in into is it its me my need not of on or should so some that the their them then there these this to use used using want what when where which while who why will with without would you your component components".split(" "),
 );
 
 export function normalizeKey(s: string): string {
@@ -70,7 +70,7 @@ export function resolveRequest(index: ComponentIndex, question: string, componen
  * Strong mentions are written like code (Button, `button`, ui:button);
  * weak mentions are ordinary words that happen to name a component ("form").
  */
-function findMentions(index: ComponentIndex, question: string) {
+export function findMentions(index: ComponentIndex, question: string) {
   const backticked = new Set([...question.matchAll(/`([^`]+)`/g)].map((m) => m[1]!.replace(/^<|\/?>$/g, "").trim()));
   const tokens = [...question.matchAll(/<?[A-Za-z][A-Za-z0-9]*(?:[:\-][A-Za-z0-9]+)*/g)].map((m) => m[0].replace(/^</, ""));
   const strong: ComponentContract[] = [];
@@ -100,10 +100,19 @@ function findMentions(index: ComponentIndex, question: string) {
   return { strong, weak: weak.filter((c) => !strong.includes(c)), unresolved };
 }
 
-function terms(text: string): string[] {
+export function terms(text: string): string[] {
   return (text.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().match(/[a-z0-9]+/g) ?? [])
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
-    .map((w) => (w.length > 4 && w.endsWith("s") ? w.slice(0, -1) : w));
+    .map(stem);
+}
+
+/** Light suffix stripping so "confirmation" meets "confirm" and "deletion" meets "delete". */
+function stem(word: string): string {
+  let w = word.replace(/mission$/, "mit");
+  if (w.length > 5) w = w.replace(/(ations?|tions?|ions?|ings?|ments?|als?)$/, "");
+  else if (w.length > 4) w = w.replace(/(ings?|s)$/, "");
+  if (w.length > 4) w = w.replace(/(ed|es|e|s)$/, "");
+  return w;
 }
 
 /** Ranks components by overlap with their name, intent and description. */

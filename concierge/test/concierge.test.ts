@@ -13,13 +13,16 @@ import { writeOutputs } from "../../ingestion/report.js";
 import type { Contract } from "../../schema/contract.js";
 import type { DocentResponse, FetchResponse, GetComponentInput } from "../../schema/response.js";
 import { createDistributor } from "../../specialists/components/fetch.js";
+import { EscalationPolicy } from "../../config/schema.js";
 import { createComponentsSpecialist } from "../../specialists/components/index.js";
+import type { Specialist } from "../../specialists/types.js";
 import { Concierge, type AuditEntry, type CallerInfo } from "../concierge.js";
 import { createMcpServer } from "../mcp.js";
 import { JsonlAuditLog, loadContract, loadSources } from "../node.js";
 import { validateFetch, validateResponse } from "../validate.js";
 
 const caller: CallerInfo = { name: "test", client: null, transport: "test" };
+const policy = EscalationPolicy.parse({});
 let contract: Contract;
 let sources: Record<string, string>;
 let fixture: ClientConfig;
@@ -47,7 +50,8 @@ describe("components specialist via the concierge", () => {
     const { concierge } = setup();
     const r = await concierge.ask({ question: "What props and variants does Button take?" }, caller);
     expect(r.status).toBe("answered");
-    expect(r.specialist).toBe("components");
+    expect(r.specialists).toEqual(["components"]);
+    expect(r.routing.signals.map((x) => x.signal)).toContain("component-named");
     expect(r.validation.passed).toBe(true);
     expect(r.provenance.contractHash).toBe(contract.contentHash);
 
@@ -82,7 +86,7 @@ describe("components specialist via the concierge", () => {
     expect(r.status).toBe("not-found");
     expect(r.unresolved).toEqual(["DatePicker"]);
     expect(r.components).toEqual([]);
-    expect(audit.entries[0]!.flags).toContain("requested-component-not-in-design-system");
+    expect(audit.entries[0]!.flags).toContain("requested-item-not-in-design-system");
 
     const mixed = await concierge.ask({ question: "Put a DatePicker inside a Dialog" }, caller);
     expect(mixed.status).toBe("answered");
@@ -96,9 +100,10 @@ describe("components specialist via the concierge", () => {
 
   it("asks for clarification instead of guessing", async () => {
     const { concierge } = setup();
-    const r = await concierge.ask({ question: "which component should commit the main action on a surface" }, caller);
+    const r = await concierge.ask({ question: "Help me with the thing on this page" }, caller);
     expect(r.status).toBe("clarification-needed");
-    expect(r.clarification?.options.map((o) => o.id)).toContain("button");
+    expect(r.routing.domains).toEqual([]);
+    expect(r.clarification?.options.map((o) => o.kind)).toContain("domain");
     expect(r.components).toEqual([]);
   });
 
@@ -121,10 +126,10 @@ describe("validation", () => {
   async function answered(): Promise<DocentResponse> {
     return setup().concierge.ask({ question: "Button" }, caller);
   }
-  const failedChecks = (r: DocentResponse) => validateResponse(r, contract).checks.filter((c) => !c.passed).flatMap((c) => c.failures);
+  const failedChecks = (r: DocentResponse) => validateResponse(r, contract, policy).checks.filter((c) => !c.passed).flatMap((c) => c.failures);
 
   it("passes an untouched answer", async () => {
-    expect(validateResponse(await answered(), contract).passed).toBe(true);
+    expect(validateResponse(await answered(), contract, policy).passed).toBe(true);
   });
 
   it("catches invented props, values, imports, rules and components", async () => {
@@ -149,15 +154,15 @@ describe("validation", () => {
   it("withholds an answer that fails validation and flags it", async () => {
     const audit = new MemoryLog();
     const real = createComponentsSpecialist(contract);
-    const lying = {
-      name: "components" as const,
-      handle: (input: Parameters<typeof real.handle>[0]) => {
-        const draft = real.handle(input);
-        draft.components[0]!.parts[0]!.props.push({ name: "size", type: '"xl"', required: false, values: ["xl"] });
+    const lying: Specialist = {
+      domain: "components",
+      handle: (request) => {
+        const draft = real.handle(request);
+        draft.components![0]!.parts[0]!.props.push({ name: "size", type: '"xl"', required: false, values: ["xl"] });
         return draft;
       },
     };
-    const concierge = new Concierge({ contract, audit, docentVersion: "test", specialist: lying });
+    const concierge = new Concierge({ contract, audit, docentVersion: "test", specialists: { components: lying } });
     const r = await concierge.ask({ question: "IconButton" }, caller);
     expect(r.status).toBe("error");
     expect(r.components).toEqual([]);
@@ -178,7 +183,7 @@ describe("audit log", () => {
       client: "acme-fixture",
       caller: { name: "checkout-agent" },
       input: { question: "Button", caller: "checkout-agent" },
-      routing: { specialist: "components" },
+      routing: { domains: ["components"] },
       status: "answered",
       componentIds: ["button"],
       contractHash: contract.contentHash,
@@ -267,9 +272,9 @@ describe("fetching source", () => {
     expect(mixed.status).toBe("delivered");
     expect(mixed.unresolved).toEqual(["DatePicker"]);
     expect(audit.entries.map((e) => e.flags)).toEqual([
-      ["requested-component-not-in-design-system"],
+      ["requested-item-not-in-design-system"],
       ["component-outside-inventory"],
-      ["requested-component-not-in-design-system"],
+      ["requested-item-not-in-design-system"],
     ]);
   });
 
@@ -333,17 +338,17 @@ describe("fetching source", () => {
 });
 
 describe("MCP server", () => {
-  it("exposes only ask when no source snapshot is loaded", async () => {
+  it("exposes only ask and check_review when no source snapshot is loaded", async () => {
     const concierge = new Concierge({ contract, audit: new MemoryLog(), docentVersion: "test" });
     const server = createMcpServer(concierge, { docentVersion: "test", transport: "test" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "cursor", version: "9.9.9" });
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-    expect((await client.listTools()).tools.map((t) => t.name)).toEqual(["ask"]);
+    expect((await client.listTools()).tools.map((t) => t.name)).toEqual(["ask", "check_review"]);
     await client.close();
   });
 
-  it("exposes read-only ask, get_component and get_foundation tools", async () => {
+  it("exposes read-only ask, check_review, get_component and get_foundation tools", async () => {
     const { concierge, audit } = setup();
     const server = createMcpServer(concierge, { docentVersion: "test", transport: "test" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -351,10 +356,11 @@ describe("MCP server", () => {
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
 
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name)).toEqual(["ask", "get_component", "get_foundation"]);
+    expect(tools.map((t) => t.name)).toEqual(["ask", "check_review", "get_component", "get_foundation"]);
     for (const tool of tools) expect(tool.annotations).toMatchObject({ readOnlyHint: true });
     expect(tools[0]!.inputSchema.required).toEqual(["question"]);
-    expect(tools[1]!.inputSchema.required).toEqual(["components"]);
+    expect(tools[1]!.inputSchema.required).toEqual(["reviewId"]);
+    expect(tools[2]!.inputSchema.required).toEqual(["components"]);
 
     const fetched = await client.callTool({ name: "get_component", arguments: { components: ["Dialog"] } });
     expect((fetched.structuredContent as FetchResponse).files.map((f) => f.path)).toEqual(["src/lib/utils.ts", "src/components/button.tsx", "src/components/dialog.tsx"]);

@@ -56,6 +56,13 @@ export function createDistributor(contract: Contract, sources: Record<string, st
       ...(dev.length ? [`Install dev packages: npm install -D ${dev.join(" ")}`] : []),
     ];
   };
+  const dependencyRule = contract.governance.checks["new-dependencies"]
+    ? contract.governance.rules.find((r) => r.id === contract.governance.checks["new-dependencies"])
+    : undefined;
+  const dependencyInstruction = (packages: PackageRequirement[]) =>
+    dependencyRule && packages.length
+      ? [`This design system's rule ${dependencyRule.id} (${dependencyRule.severity}) says: "${dependencyRule.rule}". Get the user's approval before installing these packages.`]
+      : [];
   const aliasInstruction = aliases.length
     ? [`The source imports through ${aliases.map((a) => `${a.alias} → ${a.target || "project root"}`).join(", ")}. Configure the same alias in tsconfig.json "paths" and in the bundler (e.g. Vite resolve.alias) if the project does not have it.`]
     : [];
@@ -136,6 +143,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
       alternatives,
       instructions: [
         ...(contract.foundation ? ["If this project has not been set up for this design system yet, call get_foundation first and apply it."] : []),
+        ...dependencyInstruction(sortedPackages),
         ...installCommands(sortedPackages),
         "Write every file at its path, relative to the project root, with its content exactly as delivered. Do not edit these files. If a file already exists with different content, stop and ask the user before overwriting it.",
         ...aliasInstruction,
@@ -156,6 +164,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
       files: foundation.files.map((path) => deliver(path, null)),
       packages: foundation.packages,
       instructions: [
+        ...dependencyInstruction(foundation.packages),
         ...installCommands(foundation.packages),
         "Write each file at its path. Where the project already has that file (for example its own tailwind.config or global CSS), merge rather than replace: keep every design-system CSS variable, theme extension and plugin, and keep the project's own content globs and entry styles.",
         "Make sure the global CSS file is imported by the app entry (e.g. src/main.tsx) and that Tailwind's content globs cover the project's source files.",

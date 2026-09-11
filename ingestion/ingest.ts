@@ -19,6 +19,7 @@ import { loadManifest, type ManifestEntry } from "./manifest.js";
 import { resolveSource, type ResolvedSource } from "./source.js";
 import { attachSpecs, loadSpecs } from "./specs.js";
 import { buildDistribution } from "./distribution.js";
+import { applyTokenSemantics, loadGovernance, loadPatterns } from "./governance.js";
 import { normalizeTokens } from "./tokens/normalize.js";
 import { ClassIndex } from "./tokens/tailwind-classes.js";
 import type { RawToken, TailwindEntry } from "./tokens/values.js";
@@ -105,6 +106,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     },
     gaps,
   );
+  const tokenGuidance = ingestion.tokenSemantics ? applyTokenSemantics({ root, scanned, gaps }, ingestion.tokenSemantics, tokens) : null;
   const classIndex = new ClassIndex(tokens, ingestion.ignoreCssVariablePrefixes);
 
   // --- Cross-reference components with manifest, docs and tokens -------------
@@ -282,6 +284,10 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
   });
   for (const component of components) component.install = distribution.installs.get(component.id)!;
 
+  // --- Patterns and governance -----------------------------------------------
+  const patterns = ingestion.patterns ? await loadPatterns({ root, scanned, gaps }, ingestion.patterns, components) : [];
+  const governance = await loadGovernance({ root, scanned, gaps }, ingestion.governance, { patterns, components });
+
   // --- Ingestion-level gaps --------------------------------------------------
   if (ingestion.components.length > 0 && components.length === 0) {
     gaps.add({
@@ -324,8 +330,9 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     tokens,
     sourceFiles: distribution.sourceFiles,
     foundation: distribution.foundation,
-    patterns: [],
-    governance: [],
+    tokenGuidance,
+    patterns,
+    governance,
     gaps: gapList,
   };
   const contentHash = "sha256:" + createHash("sha256").update(JSON.stringify(body)).digest("hex");
@@ -348,13 +355,16 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     tokens,
     sourceFiles: distribution.sourceFiles,
     foundation: distribution.foundation,
-    patterns: [],
-    governance: [],
+    tokenGuidance,
+    patterns,
+    governance,
     gaps: gapList,
     stats: {
       components: components.length,
       componentParts: components.reduce((n, c) => n + c.parts.length, 0),
       tokens: tokens.length,
+      patterns: patterns.length,
+      governanceRules: governance.rules.length,
       gaps: {
         error: gapList.filter((g) => g.severity === "error").length,
         warning: gapList.filter((g) => g.severity === "warning").length,

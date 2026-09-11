@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 
-export const CONTRACT_SCHEMA_VERSION = "0.3.0";
+export const CONTRACT_SCHEMA_VERSION = "0.4.0";
 
 export const SourceLocation = z.object({
   file: z.string().describe("Path relative to the design-system root"),
@@ -52,6 +52,10 @@ export const GapKind = z.enum([
   "unresolved-import",
   "dependency-not-declared",
   "foundation-not-configured",
+  // patterns and governance
+  "pattern-component-missing",
+  "semantic-token-missing",
+  "governance-check-unmapped",
   // tokens
   "unknown-token-type",
   "unresolved-token-reference",
@@ -66,7 +70,7 @@ export const Gap = z.object({
   severity: GapSeverity,
   kind: GapKind,
   subject: z.object({
-    type: z.enum(["component", "token", "source", "ingestion"]),
+    type: z.enum(["component", "token", "pattern", "rule", "source", "ingestion"]),
     id: z.string(),
   }),
   message: z.string(),
@@ -261,10 +265,80 @@ export const TokenContract = z.object({
   values: z.record(z.string(), TokenValue).describe("Keyed by mode, e.g. light / dark / default"),
   references: z.array(z.string()).describe("Ids of tokens this token's value depends on"),
   tailwind: z.array(TailwindBinding),
-  description: z.string().nullable(),
+  description: z.string().nullable().describe("What the token means, from token JSON or the client's semantic token roles"),
+  role: z.string().nullable().describe("Semantic role group, e.g. surface, content, action"),
   documented: z.boolean().nullable().describe("Whether token docs mention this token; null when no token docs are configured"),
 });
 export type TokenContract = z.infer<typeof TokenContract>;
+
+export const TokenGuidance = z.object({
+  decisions: z.array(z.object({ need: z.string(), use: z.string() })).describe("Authored lookup from a styling need to the utilities to use"),
+  forbidden: z.array(z.string()),
+  source: SourceLocation,
+});
+export type TokenGuidance = z.infer<typeof TokenGuidance>;
+
+// ---------------------------------------------------------------------------
+// Patterns
+// ---------------------------------------------------------------------------
+
+export const PatternContract = z.object({
+  id: z.string(),
+  name: z.string(),
+  intent: z.string().nullable(),
+  requiredComponents: z.array(z.string()).describe("Contract component ids"),
+  recommendedComponents: z.array(z.string()),
+  optionalComponents: z.array(z.string()),
+  unresolvedComponents: z.array(z.string()).describe("References in the pattern that match no component in the contract"),
+  sequence: z.array(z.string()),
+  rules: z.array(z.string()).describe("What the pattern requires"),
+  forbidden: z.array(z.string()).describe("What the pattern forbids"),
+  example: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()).describe("Additional authored fields kept verbatim, e.g. aiBehavior"),
+  source: SourceLocation,
+});
+export type PatternContract = z.infer<typeof PatternContract>;
+
+// ---------------------------------------------------------------------------
+// Governance
+// ---------------------------------------------------------------------------
+
+export const RuleSeverity = z.enum(["critical", "high", "medium", "low", "unspecified"]);
+export type RuleSeverity = z.infer<typeof RuleSeverity>;
+
+/** Deterministic checks Docent can run itself; each is mapped to one of the client's rules by config. */
+export const GovernanceCheck = z.enum([
+  "unindexed-component",
+  "unapproved-import",
+  "restricted-package",
+  "raw-color",
+  "palette-utility",
+  "invalid-prop-value",
+  "compound-structure",
+  "bespoke-duplicate",
+  "base-mutation",
+  "new-dependencies",
+]);
+export type GovernanceCheck = z.infer<typeof GovernanceCheck>;
+
+export const GovernanceRule = z.object({
+  id: z.string(),
+  rule: z.string(),
+  severity: RuleSeverity,
+  category: z.string(),
+  response: z.string().nullable().describe("What the client wants an agent told when this rule is hit"),
+  reference: z.string().nullable().describe("Document the client cites for the rule"),
+  source: SourceLocation,
+});
+export type GovernanceRule = z.infer<typeof GovernanceRule>;
+
+export const Governance = z.object({
+  rules: z.array(GovernanceRule),
+  checks: z.record(z.string(), z.string()).describe("Built-in check -> client rule id"),
+  approvedImportPrefixes: z.array(z.string()),
+  restrictedPackages: z.array(z.string()).describe("Package names or scopes (e.g. @mui/*) that may not be used"),
+});
+export type Governance = z.infer<typeof Governance>;
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -288,13 +362,16 @@ export const Contract = z.object({
   tokens: z.array(TokenContract),
   sourceFiles: z.array(SourceFile).describe("Every file Docent may hand to a calling agent, with its hash at the ingested commit"),
   foundation: Foundation.nullable(),
-  patterns: z.array(z.unknown()).describe("Reserved: populated from Phase 2"),
-  governance: z.array(z.unknown()).describe("Reserved: populated from Phase 2"),
+  tokenGuidance: TokenGuidance.nullable(),
+  patterns: z.array(PatternContract),
+  governance: Governance,
   gaps: z.array(Gap),
   stats: z.object({
     components: z.number(),
     componentParts: z.number(),
     tokens: z.number(),
+    patterns: z.number(),
+    governanceRules: z.number(),
     gaps: z.object({ error: z.number(), warning: z.number(), info: z.number() }),
     filesScanned: z.number(),
   }),

@@ -11,21 +11,88 @@
         "answered",
         "clarification-needed",
         "not-found",
+        "escalated",
+        "rejected",
         "error"
       ]
     },
-    "specialist": {
-      "anyOf": [
-        {
-          "type": "string",
-          "enum": [
-            "components"
-          ]
+    "specialists": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "components",
+          "tokens",
+          "patterns",
+          "governance"
+        ]
+      },
+      "description": "Specialists whose answers are merged into this response"
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "components",
+              "tokens",
+              "patterns",
+              "governance"
+            ]
+          }
         },
-        {
-          "type": "null"
+        "scores": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": {
+                "type": "string",
+                "enum": [
+                  "components",
+                  "tokens",
+                  "patterns",
+                  "governance"
+                ]
+              },
+              "signal": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "domain",
+              "signal",
+              "detail"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "reason": {
+          "type": "string"
         }
-      ]
+      },
+      "required": [
+        "domains",
+        "scores",
+        "signals",
+        "reason"
+      ],
+      "additionalProperties": false
     },
     "message": {
       "type": "string"
@@ -425,19 +492,22 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "component",
+                      "pattern",
+                      "token",
+                      "domain"
+                    ]
+                  },
                   "id": {
                     "type": "string"
-                  },
-                  "inventoryId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
                   },
                   "name": {
                     "type": "string"
                   },
-                  "intent": {
+                  "description": {
                     "type": [
                       "string",
                       "null"
@@ -445,10 +515,10 @@
                   }
                 },
                 "required": [
+                  "kind",
                   "id",
-                  "inventoryId",
                   "name",
-                  "intent"
+                  "description"
                 ],
                 "additionalProperties": false
               }
@@ -552,6 +622,583 @@
         }
       ]
     },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cssVariable": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meaning": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Raw value per theme mode"
+          },
+          "utilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tailwind utilities that apply this token"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "cssVariable",
+          "type",
+          "category",
+          "role",
+          "meaning",
+          "values",
+          "utilities",
+          "references"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tokenDecisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "need": {
+            "type": "string"
+          },
+          "use": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "need",
+          "use"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tokenForbidden": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "intent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requiredComponents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "inventoryId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "intent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "inventoryId",
+                "name",
+                "intent"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "recommendedComponents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "inventoryId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "intent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "inventoryId",
+                "name",
+                "intent"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "optionalComponents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "inventoryId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "intent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "inventoryId",
+                "name",
+                "intent"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sequence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "forbidden": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "example": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "intent",
+          "requiredComponents",
+          "recommendedComponents",
+          "optionalComponents",
+          "sequence",
+          "rules",
+          "forbidden",
+          "example",
+          "metadata"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "usage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "component": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "inventoryId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "intent": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "inventoryId",
+              "name",
+              "intent"
+            ],
+            "additionalProperties": false
+          },
+          "whenNotToUse": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agentRules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "note"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "patterns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "required",
+                    "recommended",
+                    "optional"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "component",
+          "whenNotToUse",
+          "agentRules",
+          "related",
+          "patterns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "governance": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "no-conflict",
+                "warn",
+                "needs-review",
+                "disallowed"
+              ]
+            },
+            "exceptionRequested": {
+              "type": "boolean"
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ruleId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": [
+                      "critical",
+                      "high",
+                      "medium",
+                      "low",
+                      "unspecified"
+                    ]
+                  },
+                  "category": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "check",
+                      "rule-wording",
+                      "exception-request"
+                    ],
+                    "description": "check = proven by a deterministic check; rule-wording = the request resembles the rule; exception-request = the request asks to bypass a rule"
+                  },
+                  "check": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "reject",
+                      "escalate",
+                      "warn"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "number"
+                  },
+                  "response": {
+                    "description": "What the design system says to tell the agent",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "ruleId",
+                  "rule",
+                  "severity",
+                  "category",
+                  "basis",
+                  "check",
+                  "action",
+                  "evidence",
+                  "response"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "applicableRules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "severity": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "rule",
+                  "severity",
+                  "category"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "checksRun": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "notEvaluated": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "What Docent could not check, so its absence from findings means nothing"
+            }
+          },
+          "required": [
+            "outcome",
+            "exceptionRequested",
+            "findings",
+            "applicableRules",
+            "checksRun",
+            "notEvaluated"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "review": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "denied"
+              ]
+            },
+            "reviewers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "instructions": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "reviewers",
+            "instructions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "validation": {
       "type": "object",
       "properties": {
@@ -639,13 +1286,22 @@
   "required": [
     "requestId",
     "status",
-    "specialist",
+    "specialists",
+    "routing",
     "message",
     "components",
     "unresolved",
     "clarification",
     "alternatives",
     "inventory",
+    "tokens",
+    "tokenDecisions",
+    "tokenForbidden",
+    "patterns",
+    "usage",
+    "notes",
+    "governance",
+    "review",
     "validation",
     "provenance"
   ],

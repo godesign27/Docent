@@ -45,3 +45,36 @@ ingestion:
   foundation:
     files: ["src/styles/tokens.css", "tailwind.config.ts"]
     packages: [tailwindcss]
+  tokenSemantics:
+    path: design/semantic.json
+    rolesPath: roles
+    roleFields: { token: name, meaning: means }
+    decisionsPath: table
+    forbiddenPath: never
+  patterns:
+    include: ["design/patterns/*.json"]
+    fields: { id: id, name: title, intent: purpose, requiredComponents: uses, sequence: steps, rules: do, forbidden: dont }
+  governance:
+    rules:
+      - include: ["design/rules.json"]
+        itemsPath: rules
+        category: core
+        fields: { id: id, rule: text, severity: level, response: say }
+      - include: ["design/rules.json"]
+        itemsPath: a11y
+        category: accessibility
+        severity: medium
+    approvedImports: ["@/components/", "@/lib/"]
+    restrictedPackages: ["@mui/*", "@chakra-ui/*"]
+    checks:
+      restricted-package: NO_THIRD_PARTY_UI
+      unindexed-component: INDEXED_ONLY
+      raw-color: NO_RAW_COLORS
+      palette-utility: NO_RAW_COLORS
+      invalid-prop-value: VALID_PROPS
+      compound-structure: PARTS_IN_PARENT
+      base-mutation: NO_BASE_EDITS
+      bespoke-duplicate: INDEXED_ONLY
+      made-up-check: NO_RAW_COLORS
+escalation:
+  reviewers: [acme-ds-team]

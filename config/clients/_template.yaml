@@ -49,3 +49,40 @@ ingestion:
     tokens: ["docs/tokens/**/*.md"]
 
   placeholders: [TBD, TODO, Unknown, N/A]
+
+  # Optional: semantic token roles and "need -> use" guidance.
+  # tokenSemantics:
+  #   path: tokens/semantic.json
+  #   rolesPath: roles
+  #   roleFields: { token: token, meaning: meaning }
+  #   decisionsPath: decisionTable
+  #   forbiddenPath: forbidden
+
+  # Optional: composition patterns, one JSON file each (or an array with itemsPath).
+  # patterns:
+  #   include: ["patterns/*.json"]
+  #   fields: { id: name, intent: intent, requiredComponents: requiredComponents, sequence: sequence, rules: requiredRules, forbidden: forbiddenRules }
+
+  # Optional: governance rules, and which rule each of Docent's checks enforces.
+  # governance:
+  #   rules:
+  #     - include: ["rules/forbidden.json"]
+  #       itemsPath: forbidden
+  #       category: forbidden
+  #       fields: { id: id, rule: rule, severity: severity, response: agentResponse }
+  #   approvedImports: ["@/components/", "@/lib/"]
+  #   restrictedPackages: ["@mui/*", "antd", "@chakra-ui/*"]
+  #   checks:
+  #     restricted-package: NO_THIRD_PARTY_UI
+  #     unindexed-component: ONLY_INDEXED_COMPONENTS
+  #     raw-color: NO_RAW_COLORS
+  #     palette-utility: NO_RAW_COLORS
+  #     invalid-prop-value: VALID_PROPS_ONLY
+  #     compound-structure: PARTS_INSIDE_PARENT
+
+# What governance findings lead to. These are the defaults.
+# escalation:
+#   onViolation: { critical: reject, high: escalate, medium: warn, low: warn, unspecified: warn }
+#   onPossibleViolation: warn      # a request that only resembles a critical/high rule
+#   onExceptionRequest: escalate   # a request to bypass a rule
+#   reviewers: ["Acme design-system team"]

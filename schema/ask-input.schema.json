@@ -13,6 +13,21 @@
       "type": "string",
       "maxLength": 200
     },
+    "domain": {
+      "description": "Force a specialist when you know which kind of question this is; otherwise Docent routes it.",
+      "type": "string",
+      "enum": [
+        "components",
+        "tokens",
+        "patterns",
+        "governance"
+      ]
+    },
+    "code": {
+      "description": "Proposed code (JSX/TSX) to check against the design system's governance rules before shipping it.",
+      "type": "string",
+      "maxLength": 100000
+    },
     "caller": {
       "description": "Who is asking, for the audit trail, e.g. cursor or checkout-agent.",
       "type": "string",

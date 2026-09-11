@@ -91,6 +91,93 @@ const SpecsConfig = z.object({
     .default({}),
 });
 
+const PatternsConfig = z.object({
+  /** One pattern per JSON file, or an array of patterns per file with itemsPath. */
+  include: Globs,
+  exclude: z.array(z.string()).default([]),
+  itemsPath: z.string().optional(),
+  fields: z
+    .object({
+      id: z.string(),
+      name: z.string().optional(),
+      intent: z.string().optional(),
+      requiredComponents: z.string().optional(),
+      recommendedComponents: z.string().optional(),
+      optionalComponents: z.string().optional(),
+      sequence: z.string().optional(),
+      rules: z.string().optional(),
+      forbidden: z.string().optional(),
+      example: z.string().optional(),
+    }),
+  /** Other fields copied verbatim into pattern metadata, e.g. aiBehavior. */
+  keep: z.array(z.string()).default([]),
+});
+
+const RuleSource = z.object({
+  include: Globs,
+  /** Dot path to the array of rules. Entries may be objects or plain strings. */
+  itemsPath: z.string().default(""),
+  /** Label used to group and route rules, e.g. forbidden, accessibility. */
+  category: z.string(),
+  fields: z
+    .object({
+      id: z.string().optional(),
+      rule: z.string().optional(),
+      severity: z.string().optional(),
+      response: z.string().optional(),
+      reference: z.string().optional(),
+    })
+    .default({}),
+  /** Severity for entries that do not declare one. */
+  severity: z.enum(["critical", "high", "medium", "low", "unspecified"]).default("unspecified"),
+});
+
+const GovernanceConfig = z.object({
+  rules: z.array(RuleSource).default([]),
+  /** Import prefixes generated code may use for design-system modules, e.g. @/components/ui/. */
+  approvedImports: z.array(z.string()).default([]),
+  /** Packages or scopes that may not be used, e.g. @mui/*, antd. */
+  restrictedPackages: z.array(z.string()).default([]),
+  /** Maps Docent's built-in checks to the client's own rule ids, so findings cite the client's rules. */
+  checks: z.record(z.string(), z.string()).default({}),
+  /** Also treat patterns' forbidden lists and components' forbidden usage as (unspecified-severity) rules. */
+  includeAuthoredGuidance: z.boolean().default(true),
+});
+
+const TokenSemanticsConfig = z.object({
+  path: z.string(),
+  /** Object whose keys are role groups and values are arrays of token roles. */
+  rolesPath: z.string().optional(),
+  roleFields: z.object({ token: z.string(), meaning: z.string().optional() }).default({ token: "token", meaning: "meaning" }),
+  decisionsPath: z.string().optional(),
+  decisionFields: z.object({ need: z.string(), use: z.string() }).default({ need: "need", use: "use" }),
+  forbiddenPath: z.string().optional(),
+});
+
+/** What happens when a request conflicts with the design system's rules. */
+export const EscalationPolicy = z.object({
+  /** Action when evidence shows a request or code breaks a rule of this severity. */
+  onViolation: z
+    .object({
+      critical: z.enum(["reject", "escalate", "warn"]).default("reject"),
+      high: z.enum(["reject", "escalate", "warn"]).default("escalate"),
+      medium: z.enum(["reject", "escalate", "warn"]).default("warn"),
+      low: z.enum(["reject", "escalate", "warn"]).default("warn"),
+      unspecified: z.enum(["reject", "escalate", "warn"]).default("warn"),
+    })
+    .default({ critical: "reject", high: "escalate", medium: "warn", low: "warn", unspecified: "warn" }),
+  /**
+   * Action when a request only resembles a critical or high rule (matched on its wording,
+   * not proven by a check). Docent never rejects on a resemblance; it warns with the rule, or escalates.
+   */
+  onPossibleViolation: z.enum(["escalate", "warn"]).default("warn"),
+  /** Action when a request asks to bypass, override or be excused from a rule. */
+  onExceptionRequest: z.enum(["reject", "escalate"]).default("escalate"),
+  /** Shown to calling agents so they know who decides. */
+  reviewers: z.array(z.string()).default([]),
+});
+export type EscalationPolicy = z.infer<typeof EscalationPolicy>;
+
 export const ClientConfig = z.object({
   client: z.object({
     id: z
@@ -117,6 +204,9 @@ export const ClientConfig = z.object({
     tokens: z.array(z.discriminatedUnion("extractor", [CssVariablesExtractor, TailwindThemeExtractor, DtcgJsonExtractor])).default([]),
     manifest: ManifestConfig.optional(),
     specs: SpecsConfig.optional(),
+    patterns: PatternsConfig.optional(),
+    governance: GovernanceConfig.optional(),
+    tokenSemantics: TokenSemanticsConfig.optional(),
     /** What a consuming project needs besides component files. */
     foundation: z
       .object({
@@ -146,6 +236,7 @@ export const ClientConfig = z.object({
     /** CSS variables that are runtime plumbing, not design tokens. */
     ignoreCssVariablePrefixes: z.array(z.string()).default(["--tw-", "--radix-"]),
   }),
+  escalation: EscalationPolicy.default(EscalationPolicy.parse({})),
   output: z
     .object({
       /** Relative to the Docent repo root. Defaults to contracts/<client.id>. */
@@ -160,3 +251,6 @@ export type TailwindThemeExtractorConfig = z.infer<typeof TailwindThemeExtractor
 export type DtcgJsonExtractorConfig = z.infer<typeof DtcgJsonExtractor>;
 export type ManifestConfig = z.infer<typeof ManifestConfig>;
 export type SpecsConfig = z.infer<typeof SpecsConfig>;
+export type PatternsConfig = z.infer<typeof PatternsConfig>;
+export type GovernanceConfig = z.infer<typeof GovernanceConfig>;
+export type TokenSemanticsConfig = z.infer<typeof TokenSemanticsConfig>;

@@ -44,6 +44,7 @@ export function normalizeTokens(input: NormalizeInput, gaps: GapCollector): Toke
         references: [],
         tailwind: [],
         description: null,
+        role: null,
         documented: null,
       };
       tokens.set(raw.id, token);
@@ -123,6 +124,7 @@ export function normalizeTokens(input: NormalizeInput, gaps: GapCollector): Toke
       references,
       tailwind: [binding],
       description: null,
+      role: null,
       documented: null,
     });
   }

@@ -1,0 +1,217 @@
+# Phase 2 routing evaluation for agentic-ui-shadcn.
+# Run with: npm run docent -- eval --client agentic-ui-shadcn
+# Each case is a request an engineering agent would realistically send, with where it should go
+# and what should come back. Expectations describe the correct behaviour, not the current output.
+
+# --- Components & contracts ---------------------------------------------------------------
+- name: component props
+  ask: What props does AIButton take?
+  expect: { domains: [components], status: answered, components: [ai-button] }
+
+- name: compound parts and import
+  ask: How do I import the Sidebar and which parts does it have?
+  expect: { domains: [components], status: answered, components: [sidebar] }
+
+- name: variants and sizes
+  ask: What variants and sizes does Button support?
+  expect: { domains: [components], status: answered, components: [button] }
+
+- name: part named, not the component
+  ask: What goes inside SelectContent?
+  expect: { domains: [components], status: answered, components: [select] }
+
+- name: inventory
+  ask: list all components
+  expect: { domains: [components], status: answered }
+
+- name: component that does not exist
+  ask: How do I configure the DatePicker range mode?
+  expect: { domains: [components], status: not-found, unresolved: [DatePicker] }
+
+# --- Tokens & foundations -----------------------------------------------------------------
+- name: token for a styling need
+  ask: Which token should I use for helper text?
+  expect: { domains: [tokens], status: answered, tokens: [muted-foreground] }
+
+- name: dark mode value
+  ask: What is the dark mode value of --primary?
+  expect: { domains: [tokens], status: answered, tokens: [primary] }
+
+- name: color for a dangerous action
+  ask: What color should a dangerous action use?
+  expect: { domains: [tokens], status: answered, tokens: [destructive] }
+
+- name: utility meaning
+  ask: What does bg-ai-surface mean and when do I use it?
+  expect: { domains: [tokens], status: answered, tokens: [ai-surface] }
+
+- name: category listing
+  ask: What radius tokens are there?
+  expect: { domains: [tokens], status: answered, tokens: [radius] }
+
+- name: token that does not exist
+  ask: Is there a --brand-500 token?
+  expect: { domains: [tokens], status: not-found, unresolved: [--brand-500] }
+
+# --- Patterns & usage ---------------------------------------------------------------------
+- name: flow described in plain words
+  ask: How should I build a delete confirmation flow?
+  expect: { domains: [patterns], status: answered, patterns: [destructive-action] }
+
+- name: which component for a job
+  ask: Which component should I use to confirm a destructive action?
+  expect: { domains: [patterns], status: answered, patterns: [destructive-action] }
+
+- name: AI approval
+  ask: What's the right way to show an AI recommendation the user has to approve?
+  expect: { domains: [patterns], status: answered, patterns: [ai-approval-flow] }
+
+- name: choosing between two components
+  ask: Dialog or Sheet for editing a user profile?
+  expect: { domains: [components, patterns], status: answered, components: [dialog, sheet] }
+
+- name: when to use one over another
+  ask: When should I use Popover instead of Tooltip?
+  expect: { domains: [components, patterns], status: answered }
+
+# --- Multi-domain -------------------------------------------------------------------------
+- name: component and token together
+  ask: What props does Badge take, and which token colors its destructive variant?
+  expect: { domains: [components, tokens], status: answered, components: [badge], tokens: [destructive] }
+
+# --- Governance & escalation --------------------------------------------------------------
+- name: third-party UI library
+  ask: Can I use Material UI's DataGrid for the projects table?
+  expect: { includesDomains: [governance], status: rejected, outcome: disallowed, rules: [FORBID_THIRD_PARTY_UI] }
+
+- name: exception to the token rules
+  ask: Can we make an exception and use bg-blue-600 for the brand CTA just this once?
+  expect: { includesDomains: [governance], status: escalated, outcome: needs-review, rules: [FORBID_RAW_COLOR] }
+
+- name: forbidden by a pattern, asked as a question
+  ask: Is it OK to put the delete warning only in a tooltip?
+  expect: { includesDomains: [governance], status: answered, outcome: warn }
+
+- name: editing a base component
+  ask: I want to edit src/components/ui/button.tsx to add a brand variant
+  expect: { includesDomains: [governance], status: escalated, outcome: needs-review, rules: [FORBID_BASE_MUTATION] }
+
+- name: adding a dependency
+  ask: Can I npm install react-datepicker for the date filter?
+  expect: { includesDomains: [governance], status: rejected, outcome: disallowed, rules: [FORBID_NEW_DEPENDENCIES] }
+
+- name: structural rule asked as a question
+  ask: Can I nest a Dialog inside a Sheet?
+  expect: { includesDomains: [governance], status: answered, outcome: warn, rules: [NO_NESTED_OVERLAYS] }
+
+- name: overriding a named rule
+  ask: We need to override FORBID_RAW_COLOR for the marketing hero gradient
+  expect: { domains: [governance], status: escalated, outcome: needs-review, rules: [FORBID_RAW_COLOR] }
+
+- name: code with a third-party import and a palette color
+  ask: Is this OK to ship?
+  code: |
+    import { Button } from "@mui/material"
+
+    export function Save() {
+      return <Button className="bg-blue-600 text-white">Save</Button>
+    }
+  expect: { domains: [governance], status: rejected, outcome: disallowed, rules: [FORBID_THIRD_PARTY_UI, FORBID_RAW_COLOR] }
+
+- name: code with an invalid variant and a part outside its parent
+  ask: Check this before I open the PR
+  code: |
+    import { Button } from "@/components/ui/button"
+    import { Select, SelectItem } from "@/components/ui/select"
+
+    export function Filters() {
+      return (
+        <div>
+          <Select>
+            <SelectItem value="open">Open</SelectItem>
+          </Select>
+          <Button variant="primary">Apply</Button>
+        </div>
+      )
+    }
+  expect: { domains: [governance], status: rejected, outcome: disallowed, rules: [VALIDATE_PROPS, COMPOUND_PARTS_STAY_TOGETHER] }
+
+- name: clean code
+  ask: Does this follow the design system?
+  code: |
+    import { Button } from "@/components/ui/button"
+    import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+    export function Summary() {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline">Details</Button>
+          </CardContent>
+        </Card>
+      )
+    }
+  expect: { domains: [governance], status: answered, outcome: no-conflict }
+
+# --- Clarification ------------------------------------------------------------------------
+- name: nothing to go on
+  ask: Help me with the thing on the settings page
+  expect: { domains: [], status: clarification-needed }
+
+- name: vague
+  ask: What should I do here?
+  expect: { domains: [], status: clarification-needed }
+
+# --- Added after a held-out run (first scored 9/15; two misses were test-file errors) -----------
+- name: API by another name
+  ask: Show me the Tabs API
+  expect: { domains: [components], status: answered, components: [tabs] }
+- name: parts of a compound component
+  ask: Which parts make up AlertDialog?
+  expect: { domains: [components], status: answered, components: [alert-dialog] }
+- name: token value in a mode
+  ask: What's the value of the ring color in dark mode?
+  expect: { domains: [tokens], status: answered, tokens: [ring] }
+- name: category with no tokens
+  ask: What spacing tokens does the system define?
+  expect: { domains: [tokens], status: not-found }
+- name: empty state in plain words
+  ask: How do I present an empty list with no results?
+  expect: { domains: [patterns], status: answered, patterns: [empty-state] }
+- name: form pattern
+  ask: What is the recommended form submission pattern?
+  expect: { domains: [patterns], status: answered, patterns: [form-submit] }
+- name: AI response pattern
+  ask: How should an AI response be structured?
+  expect: { domains: [components, patterns], status: answered, patterns: [ai-response] }
+- name: another UI library
+  ask: Can I use Chakra UI for the settings modal?
+  expect: { includesDomains: [governance], status: rejected, rules: [FORBID_THIRD_PARTY_UI] }
+- name: hard-coded hex
+  ask: "Is it fine to hardcode #1a73e8 as the link color?"
+  expect: { includesDomains: [governance], status: escalated, rules: [FORBID_RAW_COLOR] }
+- name: silent AI apply
+  ask: Can I auto-apply the AI suggestion when the page loads?
+  expect: { includesDomains: [governance], outcome: warn }
+- name: bespoke duplicate in code
+  ask: Review this
+  code: |
+    export function Button({ children }: { children: React.ReactNode }) {
+      return <button className="rounded-md bg-primary px-4">{children}</button>
+    }
+  expect: { domains: [governance], status: escalated, rules: [FORBID_BESPOKE_WHEN_INDEXED] }
+- name: adding a variant is a base change
+  ask: Can I add a size=xl option to Button?
+  expect: { includesDomains: [governance], status: escalated, rules: [FORBID_BASE_MUTATION] }
+- name: comparison with a missing component
+  ask: Compare Drawer and Sheet
+  expect: { includesDomains: [components], unresolved: [Drawer] }
+- name: two tokens compared without saying token
+  ask: What's the difference between muted and accent?
+  expect: { domains: [tokens], status: answered, tokens: [muted, accent] }
+- name: small talk
+  ask: Thanks!
+  expect: { domains: [], status: clarification-needed }

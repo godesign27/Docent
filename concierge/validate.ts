@@ -3,15 +3,20 @@
  * trust the specialist: every component, prop, variant, import path and rule in
  * the response must be traceable to the contract, or the response is withheld.
  */
+import type { EscalationPolicy } from "../config/schema.js";
 import type { ComponentContract, Contract, PackageRequirement } from "../schema/contract.js";
 import { DocentResponse, FetchResponse, type ComponentAnswer, type GetComponentInput, type ValidationResult } from "../schema/response.js";
 import { installClosure } from "../specialists/components/fetch.js";
 import { ComponentIndex } from "../specialists/components/resolve.js";
+import { actionFor, outcomeFor } from "../specialists/governance/policy.js";
 
 type Check = ValidationResult["checks"][number];
 
-export function validateResponse(response: DocentResponse, contract: Contract): ValidationResult {
+export function validateResponse(response: DocentResponse, contract: Contract, policy: EscalationPolicy): ValidationResult {
   const byId = new Map(contract.components.map((c) => [c.id, c]));
+  const tokensById = new Map(contract.tokens.map((t) => [t.id, t]));
+  const patternsById = new Map(contract.patterns.map((p) => [p.id, p]));
+  const rulesById = new Map(contract.governance.rules.map((r) => [r.id, r]));
   const inventoryConfigured = contract.components.some((c) => c.manifest !== null);
   const checks: Check[] = [];
   const check = (id: string, run: (fail: (msg: string) => void) => void) => {
@@ -19,6 +24,7 @@ export function validateResponse(response: DocentResponse, contract: Contract): 
     run((msg) => failures.push(msg));
     checks.push({ id, passed: failures.length === 0, failures });
   };
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
   check("response-schema", (fail) => {
     const parsed = DocentResponse.safeParse(response);
@@ -30,33 +36,136 @@ export function validateResponse(response: DocentResponse, contract: Contract): 
     if (response.provenance.client.id !== contract.client.id) fail(`client ${response.provenance.client.id} is not ${contract.client.id}`);
   });
 
-  check("components-exist", (fail) => {
-    const refs = [
+  check("routing", (fail) => {
+    for (const s of response.specialists) if (!response.routing.domains.includes(s)) fail(`${s} answered but was not routed to`);
+    if (response.status === "clarification-needed" && !response.clarification) fail("clarification-needed without a clarification");
+  });
+
+  check("references-exist", (fail) => {
+    const componentRefs = [
       ...response.components.map((c) => ({ id: c.id, name: c.name, where: "components" })),
       ...response.components.flatMap((c) => c.related.map((r) => ({ id: r.id, name: r.name, where: `${c.id}.related` }))),
-      ...(response.clarification?.options ?? []).map((o) => ({ id: o.id, name: o.name, where: "clarification" })),
       ...response.alternatives.map((a) => ({ id: a.id, name: a.name, where: "alternatives" })),
       ...(response.inventory ?? []).map((a) => ({ id: a.id, name: a.name, where: "inventory" })),
+      ...response.patterns.flatMap((p) =>
+        [...p.requiredComponents, ...p.recommendedComponents, ...p.optionalComponents].map((c) => ({ id: c.id, name: c.name, where: `pattern ${p.id}` })),
+      ),
+      ...response.usage.flatMap((u) => [
+        { id: u.component.id, name: u.component.name, where: "usage" },
+        ...u.related.map((r) => ({ id: r.id, name: r.name, where: `usage ${u.component.id}.related` })),
+      ]),
     ];
-    for (const ref of refs) {
+    for (const ref of componentRefs) {
       const c = byId.get(ref.id);
       if (!c) fail(`${ref.where}: ${ref.id} is not in the contract`);
       else if (c.name !== ref.name) fail(`${ref.where}: ${ref.id} is named ${c.name}, not ${ref.name}`);
     }
+    for (const option of response.clarification?.options ?? []) {
+      const exists =
+        option.kind === "component" ? byId.has(option.id) : option.kind === "pattern" ? patternsById.has(option.id) : option.kind === "token"
+          ? tokensById.has(option.id) || (contract.tokenGuidance?.decisions ?? []).some((d) => d.use === option.id)
+          : ["components", "tokens", "patterns", "governance"].includes(option.id);
+      if (!exists) fail(`clarification option ${option.kind} ${option.id} is not in the contract`);
+    }
   });
 
   check("unresolved-names", (fail) => {
-    const known = new Set(contract.components.flatMap((c) => [c.id, c.name, ...c.parts.map((p) => p.name)].map((k) => k.toLowerCase())));
-    for (const name of response.unresolved) {
-      if (known.has(name.toLowerCase())) fail(`${name} is reported as not in the design system, but it is`);
-    }
+    const known = new Set(
+      [
+        ...contract.components.flatMap((c) => [c.id, c.name, ...c.parts.map((p) => p.name)]),
+        ...contract.tokens.flatMap((t) => [t.id, t.cssVariable ?? ""]),
+      ].map((k) => k.toLowerCase()),
+    );
+    for (const name of response.unresolved) if (known.has(name.toLowerCase())) fail(`${name} is reported as not in the design system, but it is`);
   });
 
   for (const answer of response.components) {
     const c = byId.get(answer.id);
-    if (!c) continue;
-    check(`contract:${answer.id}`, (fail) => compareAnswer(answer, c, inventoryConfigured, fail));
+    if (c) check(`contract:${answer.id}`, (fail) => compareAnswer(answer, c, inventoryConfigured, fail));
   }
+
+  check("tokens", (fail) => {
+    for (const t of response.tokens) {
+      const source = tokensById.get(t.id);
+      if (!source) {
+        fail(`token ${t.id} is not in the contract`);
+        continue;
+      }
+      const values = Object.fromEntries(Object.entries(source.values).map(([m, v]) => [m, v.raw]));
+      if (!same(values, t.values)) fail(`token ${t.id} values differ from the contract`);
+      if (t.meaning !== source.description || t.role !== source.role || t.cssVariable !== source.cssVariable) fail(`token ${t.id} meaning, role or variable differs`);
+      const utilities = new Set(source.tailwind.flatMap((b) => b.exampleClasses));
+      for (const u of t.utilities) if (!utilities.has(u)) fail(`token ${t.id} lists utility ${u}, which is not bound to it`);
+    }
+    const decisions = contract.tokenGuidance?.decisions ?? [];
+    for (const d of response.tokenDecisions) if (!decisions.some((x) => x.need === d.need && x.use === d.use)) fail(`token decision "${d.need}" was not authored`);
+    if (response.tokenForbidden.length && !same(response.tokenForbidden, contract.tokenGuidance?.forbidden ?? [])) fail("tokenForbidden differs from the authored list");
+  });
+
+  check("patterns-and-usage", (fail) => {
+    for (const p of response.patterns) {
+      const source = patternsById.get(p.id);
+      if (!source) {
+        fail(`pattern ${p.id} is not in the contract`);
+        continue;
+      }
+      const ids = (refs: { id: string }[]) => refs.map((r) => r.id);
+      if (
+        !same([p.intent, p.sequence, p.rules, p.forbidden, p.example, p.metadata], [source.intent, source.sequence, source.rules, source.forbidden, source.example, source.metadata]) ||
+        !same([ids(p.requiredComponents), ids(p.recommendedComponents), ids(p.optionalComponents)], [source.requiredComponents, source.recommendedComponents, source.optionalComponents])
+      ) {
+        fail(`pattern ${p.id} differs from the contract`);
+      }
+    }
+    for (const u of response.usage) {
+      const c = byId.get(u.component.id);
+      if (!c) continue;
+      if (!same(u.whenNotToUse, c.guidance?.forbiddenUsage ?? []) || !same(u.agentRules, c.guidance?.agentRules ?? [])) fail(`usage for ${c.id} differs from its authored guidance`);
+      for (const ref of u.patterns) {
+        const p = patternsById.get(ref.id);
+        const role = p?.requiredComponents.includes(c.id) ? "required" : p?.recommendedComponents.includes(c.id) ? "recommended" : p?.optionalComponents.includes(c.id) ? "optional" : null;
+        if (role !== ref.role) fail(`usage for ${c.id} says it is ${ref.role} in ${ref.id}`);
+      }
+    }
+  });
+
+  check("governance", (fail) => {
+    const g = response.governance;
+    if (!g) {
+      if (response.status === "escalated" || response.status === "rejected") fail(`${response.status} without a governance decision`);
+      return;
+    }
+    for (const f of g.findings) {
+      if (f.ruleId) {
+        const rule = rulesById.get(f.ruleId);
+        if (!rule) fail(`finding cites ${f.ruleId}, which is not a rule in the contract`);
+        else if (rule.rule !== f.rule || rule.severity !== f.severity || rule.category !== f.category || rule.response !== f.response) fail(`finding ${f.ruleId} misquotes the rule`);
+        if (f.check && contract.governance.checks[f.check] !== f.ruleId) fail(`check ${f.check} is not mapped to ${f.ruleId}`);
+      } else if (f.basis !== "exception-request" && !(f.check && !contract.governance.checks[f.check])) {
+        fail("finding cites no rule");
+      }
+      if (f.action !== actionFor(policy, f)) fail(`finding ${f.ruleId ?? f.check} has action ${f.action}; the policy gives ${actionFor(policy, f)}`);
+    }
+    for (const r of g.applicableRules) if (!rulesById.has(r.id)) fail(`applicable rule ${r.id} is not in the contract`);
+    const outcome = outcomeFor(g.findings);
+    if (g.outcome !== outcome) fail(`outcome ${g.outcome} does not follow from the findings (${outcome})`);
+    const expectedStatus = outcome === "disallowed" ? "rejected" : outcome === "needs-review" ? "escalated" : null;
+    if (expectedStatus && response.status !== expectedStatus) fail(`outcome ${outcome} requires status ${expectedStatus}, not ${response.status}`);
+    if (!expectedStatus && (response.status === "rejected" || response.status === "escalated")) fail(`status ${response.status} without a matching governance outcome`);
+  });
+
+  check("withheld-when-blocked", (fail) => {
+    const blocked = response.status === "escalated" || response.status === "rejected";
+    if (blocked && (response.components.length || response.tokens.length || response.patterns.length || response.usage.length || response.inventory)) {
+      fail(`a ${response.status} response must not carry answers`);
+    }
+    if (response.status === "escalated") {
+      if (!response.review || response.review.status !== "pending") fail("an escalated response must carry a pending review");
+      else if (!same(response.review.reviewers, policy.reviewers)) fail("review reviewers differ from the policy");
+    } else if (response.review) {
+      fail("only escalated responses carry a review");
+    }
+  });
 
   return { passed: checks.every((c) => c.passed), checks };
 }

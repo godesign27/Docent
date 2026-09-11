@@ -1,0 +1,13 @@
+{
+  "rules": [
+    { "id": "NO_THIRD_PARTY_UI", "text": "No external UI libraries such as Material UI or Chakra", "level": "critical", "say": "Use Acme components instead." },
+    { "id": "INDEXED_ONLY", "text": "Only components in the Acme inventory may be used", "level": "critical" },
+    { "id": "NO_RAW_COLORS", "text": "No hard-coded hex or palette colors in component classes", "level": "high", "say": "Use a semantic token." },
+    { "id": "VALID_PROPS", "text": "Only props and variants declared by the component", "level": "high" },
+    { "id": "PARTS_IN_PARENT", "text": "Compound parts must render inside their parent component", "level": "critical" },
+    { "id": "NO_BASE_EDITS", "text": "Do not edit base component source files", "level": "high" },
+    { "id": "NO_NESTED_DIALOGS", "text": "Do not nest a dialog inside another dialog", "level": "high" },
+    { "id": "BODY_TEXT_SIZE", "text": "Body text must not be smaller than 14px", "level": "medium" }
+  ],
+  "a11y": ["Every form control needs a visible label"]
+}

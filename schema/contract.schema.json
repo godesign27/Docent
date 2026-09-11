@@ -4,7 +4,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "0.3.0"
+      "const": "0.4.0"
     },
     "docentVersion": {
       "type": "string"
@@ -796,6 +796,14 @@
             }
           },
           "description": {
+            "description": "What the token means, from token JSON or the client's semantic token roles",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "description": "Semantic role group, e.g. surface, content, action",
             "type": [
               "string",
               "null"
@@ -820,6 +828,7 @@
           "references",
           "tailwind",
           "description",
+          "role",
           "documented"
         ],
         "additionalProperties": false
@@ -931,15 +940,285 @@
         }
       ]
     },
+    "tokenGuidance": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "decisions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "need": {
+                    "type": "string"
+                  },
+                  "use": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "need",
+                  "use"
+                ],
+                "additionalProperties": false
+              },
+              "description": "Authored lookup from a styling need to the utilities to use"
+            },
+            "forbidden": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "source": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Path relative to the design-system root"
+                },
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "file"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "decisions",
+            "forbidden",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "patterns": {
       "type": "array",
-      "items": {},
-      "description": "Reserved: populated from Phase 2"
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "intent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requiredComponents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Contract component ids"
+          },
+          "recommendedComponents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "optionalComponents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unresolvedComponents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "References in the pattern that match no component in the contract"
+          },
+          "sequence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the pattern requires"
+          },
+          "forbidden": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the pattern forbids"
+          },
+          "example": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "Additional authored fields kept verbatim, e.g. aiBehavior"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Path relative to the design-system root"
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "file"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "intent",
+          "requiredComponents",
+          "recommendedComponents",
+          "optionalComponents",
+          "unresolvedComponents",
+          "sequence",
+          "rules",
+          "forbidden",
+          "example",
+          "metadata",
+          "source"
+        ],
+        "additionalProperties": false
+      }
     },
     "governance": {
-      "type": "array",
-      "items": {},
-      "description": "Reserved: populated from Phase 2"
+      "type": "object",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low",
+                  "unspecified"
+                ]
+              },
+              "category": {
+                "type": "string"
+              },
+              "response": {
+                "description": "What the client wants an agent told when this rule is hit",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reference": {
+                "description": "Document the client cites for the rule",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Path relative to the design-system root"
+                  },
+                  "line": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "rule",
+              "severity",
+              "category",
+              "response",
+              "reference",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "checks": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Built-in check -> client rule id"
+        },
+        "approvedImportPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "restrictedPackages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Package names or scopes (e.g. @mui/*) that may not be used"
+        }
+      },
+      "required": [
+        "rules",
+        "checks",
+        "approvedImportPrefixes",
+        "restrictedPackages"
+      ],
+      "additionalProperties": false
     },
     "gaps": {
       "type": "array",
@@ -982,6 +1261,9 @@
               "unresolved-import",
               "dependency-not-declared",
               "foundation-not-configured",
+              "pattern-component-missing",
+              "semantic-token-missing",
+              "governance-check-unmapped",
               "unknown-token-type",
               "unresolved-token-reference",
               "missing-default-mode",
@@ -997,6 +1279,8 @@
                 "enum": [
                   "component",
                   "token",
+                  "pattern",
+                  "rule",
                   "source",
                   "ingestion"
                 ]
@@ -1059,6 +1343,12 @@
         "tokens": {
           "type": "number"
         },
+        "patterns": {
+          "type": "number"
+        },
+        "governanceRules": {
+          "type": "number"
+        },
         "gaps": {
           "type": "object",
           "properties": {
@@ -1087,6 +1377,8 @@
         "components",
         "componentParts",
         "tokens",
+        "patterns",
+        "governanceRules",
         "gaps",
         "filesScanned"
       ],
@@ -1105,6 +1397,7 @@
     "tokens",
     "sourceFiles",
     "foundation",
+    "tokenGuidance",
     "patterns",
     "governance",
     "gaps",

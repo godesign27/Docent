@@ -1,0 +1,9 @@
+{
+  "id": "confirm-delete",
+  "title": "Confirm delete",
+  "purpose": "Protect users from irreversible deletion.",
+  "uses": ["acme:dialog", "acme:button", "acme:tooltip"],
+  "steps": ["A destructive Button opens the Dialog", "The Dialog names what will be deleted", "Cancel has initial focus"],
+  "do": ["Label the confirm button with the verb"],
+  "dont": ["No single-click deletion", "No tooltip as the only warning surface"]
+}

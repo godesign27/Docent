@@ -1,0 +1,14 @@
+{
+  "roles": {
+    "action": [
+      { "name": "primary", "means": "The main action on a surface." },
+      { "name": "brand", "means": "A token the CSS never defines." }
+    ],
+    "focus": [{ "name": "--ring", "means": "Focus indication." }]
+  },
+  "table": [
+    { "need": "The main action", "use": "bg-primary text-primary-foreground" },
+    { "need": "Focus indication", "use": "focus-visible:ring-2 focus-visible:ring-ring" }
+  ],
+  "never": ["Raw hex values in class names"]
+}

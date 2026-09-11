@@ -1,5 +1,5 @@
 # First Docent test subject: GO Design's own shadcn/ui implementation repo,
-# with a ui:* (shadcn) and an ai:* (AI-native) component namespace.
+# with ui:* (shadcn), ai:* (AI-native), layout:* and pattern:* component namespaces.
 client:
   id: agentic-ui-shadcn
   name: Agentic UI (shadcn/ui)
@@ -12,7 +12,7 @@ source:
 ingestion:
   components:
     - extractor: react-tsx
-      include: ["src/components/ui/**/*.tsx", "src/components/ai/**/*.tsx"]
+      include: ["src/components/ui/**/*.tsx", "src/components/ai/**/*.tsx", "src/components/layout/**/*.tsx", "src/components/patterns/**/*.tsx"]
 
   tokens:
     - extractor: css-variables
@@ -75,3 +75,73 @@ ingestion:
   foundation:
     files: ["src/index.css", "tailwind.config.js", "postcss.config.js"]
     packages: [tailwindcss, postcss, autoprefixer]
+
+  # Semantic token roles: meanings, the need -> utility decision table, forbidden token usage.
+  tokenSemantics:
+    path: design-system/tokens/semantic.json
+    rolesPath: roles
+    roleFields: { token: token, meaning: meaning }
+    decisionsPath: decisionTable
+    decisionFields: { need: need, use: use }
+    forbiddenPath: forbidden
+
+  patterns:
+    include: ["design-system/patterns/*.json"]
+    fields:
+      id: name
+      intent: intent
+      requiredComponents: requiredComponents
+      recommendedComponents: shouldInclude
+      optionalComponents: optionalComponents
+      sequence: sequence
+      rules: requiredRules
+      forbidden: forbiddenRules
+      example: codeSketch
+    keep: [experienceMode, aiBehavior, accountabilitySatisfied, sourceDocs]
+
+  governance:
+    rules:
+      - include: ["design-system/rules/forbidden.json"]
+        itemsPath: forbidden
+        category: forbidden
+        fields: { id: id, rule: rule, severity: severity, response: agentResponse, reference: source }
+      - include: ["design-system/rules/composition.json"]
+        itemsPath: structuralConstraints
+        category: composition
+        fields: { id: id, rule: rule, severity: severity }
+      - include: ["design-system/rules/ai-interaction.json"]
+        itemsPath: rules
+        category: ai-interaction
+        fields: { id: id, rule: rule, severity: severity }
+      - include: ["design-system/rules/accessibility.json"]
+        itemsPath: requirements
+        category: accessibility
+      - include: ["design-system/tokens/semantic.json"]
+        itemsPath: forbidden
+        category: tokens
+        severity: high
+      - include: ["design-system/agents/validation.json"]
+        itemsPath: checks
+        category: validation
+        fields: { id: id, rule: description, severity: severity, reference: source }
+    approvedImports: ["@/components/ui/", "@/components/ai/", "@/components/patterns/", "@/components/layout/", "@/lib/", "@/hooks/"]
+    restrictedPackages: ["@mui/*", "@material-ui/*", "antd", "@ant-design/*", "@chakra-ui/*", "@mantine/*", "bootstrap", "react-bootstrap"]
+    checks:
+      unindexed-component: FORBID_UNINDEXED_COMPONENT
+      unapproved-import: FORBID_UNAPPROVED_IMPORT
+      restricted-package: FORBID_THIRD_PARTY_UI
+      raw-color: FORBID_RAW_COLOR
+      palette-utility: FORBID_RAW_COLOR
+      invalid-prop-value: VALIDATE_PROPS
+      compound-structure: COMPOUND_PARTS_STAY_TOGETHER
+      bespoke-duplicate: FORBID_BESPOKE_WHEN_INDEXED
+      base-mutation: FORBID_BASE_MUTATION
+      new-dependencies: FORBID_NEW_DEPENDENCIES
+
+# Mirrors the client's own gate in design-system/agents/validation.json: critical fails,
+# high needs a human's explicit acceptance, medium and low are warnings.
+escalation:
+  onViolation: { critical: reject, high: escalate, medium: warn, low: warn, unspecified: warn }
+  onPossibleViolation: warn
+  onExceptionRequest: escalate
+  reviewers: ["GO Design design-system team"]

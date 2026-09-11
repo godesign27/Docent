@@ -483,7 +483,7 @@ function renderedElement(fn: FunctionLike, sf: ts.SourceFile): string | undefine
   return dynamic ?? found;
 }
 
-function collectClassStrings(sf: ts.SourceFile): { value: string; line: number }[] {
+export function collectClassStrings(sf: ts.SourceFile): { value: string; line: number }[] {
   const out: { value: string; line: number }[] = [];
   const push = (node: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral): void => {
     out.push({ value: node.text, line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1 });

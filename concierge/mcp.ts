@@ -1,6 +1,6 @@
 /** Exposes the concierge as an MCP server. Transport-agnostic. */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { AskInput, DocentResponse, FetchResponse, GetComponentInput, GetFoundationInput } from "../schema/response.js";
+import { AskInput, CheckReviewInput, DocentResponse, FetchResponse, GetComponentInput, GetFoundationInput, ReviewResponse } from "../schema/response.js";
 import type { CallerInfo, Concierge } from "./concierge.js";
 
 export function createMcpServer(concierge: Concierge, options: { docentVersion: string; transport: CallerInfo["transport"] }): McpServer {
@@ -16,7 +16,8 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
             "2. Before using a component, call ask for its props, variants and usage rules.\n" +
             "3. Call get_component to fetch its source and dependencies, write the files exactly as delivered, and install the listed packages.\n"
           : "Before using a component, call ask for its props, variants and usage rules.\n") +
-        "Use only components Docent returns. If Docent says something is not in the design system, do not build, install or approximate it.",
+        "Use only components Docent returns. If Docent says something is not in the design system, do not build, install or approximate it.\n" +
+        'Before shipping UI, call ask with the code to check it against the rules. Status "rejected" means do not proceed; "escalated" means a human must decide first: call check_review with the review id and wait for approval.',
     },
   );
 
@@ -28,7 +29,7 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
       transport: options.transport,
     };
   };
-  const result = (response: DocentResponse | FetchResponse) => ({
+  const result = (response: DocentResponse | FetchResponse | ReviewResponse) => ({
     content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
     structuredContent: response,
     isError: response.status === "error",
@@ -39,16 +40,29 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
     {
       title: `Ask the ${system} design system`,
       description:
-        `Look up components in the ${system} design system: import path, exported parts, props (types, required, defaults), ` +
-        "variants, required nesting, forbidden usage, agent rules, accessibility obligations and known gaps. " +
-        "Name components as they appear in code (Button, AlertDialog) or pass the component argument. " +
-        'Ask "list all components" for the inventory. Status "not-found" means the component does not exist here and must not be invented; ' +
-        '"clarification-needed" means ask again with component set to one of the options.',
+        `Single entry point to the ${system} design system. Docent routes the question to the right specialist(s): ` +
+        "components (props, variants, imports, structure), tokens (colors, spacing, typography, theme values and which token to use), " +
+        "patterns (which component to use and how to compose a flow) and governance (whether something is allowed; pass code to check it before shipping). " +
+        "Every answer is validated against the design-system contract and logged. " +
+        'Statuses: "answered"; "clarification-needed" (ask again naming one of the options); "not-found" (it does not exist here, do not invent it); ' +
+        '"rejected" (the rules disallow it, do not proceed); "escalated" (a human must decide first, poll check_review).',
       inputSchema: AskInput.shape,
       outputSchema: DocentResponse.shape,
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: false },
     },
     async (args) => result(await concierge.ask(args, callerFor(args.caller))),
+  );
+
+  server.registerTool(
+    "check_review",
+    {
+      title: "Check an escalated request's review",
+      description: "Look up the human decision on a request Docent escalated. Returns pending, approved or denied, with the reviewer's note.",
+      inputSchema: CheckReviewInput.shape,
+      outputSchema: ReviewResponse.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => result(await concierge.checkReview(args, callerFor(args.caller))),
   );
 
   if (concierge.canDistribute) {

@@ -61,10 +61,10 @@ export function exampleClasses(section: string, key: string): string[] {
   return (TAILWIND_SECTIONS[section]?.prefixes ?? []).slice(0, 3).map((p) => classFor(p, key));
 }
 
-const PALETTE = new RegExp(
+export const PALETTE = new RegExp(
   `^(${COLOR_PREFIXES.join("|")})-(black|white|(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00|950))$`,
 );
-const ARBITRARY_COLOR = new RegExp(`^(${COLOR_PREFIXES.join("|")})-\\[(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch|oklab)\\((?!.*var\\().*\\))\\]$`);
+export const ARBITRARY_COLOR = new RegExp(`^(${COLOR_PREFIXES.join("|")})-\\[(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch|oklab)\\((?!.*var\\().*\\))\\]$`);
 
 export interface ClassAnalysis {
   tokenRefs: Set<string>;
