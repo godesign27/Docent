@@ -57,9 +57,9 @@ export function createComponentsSpecialist(contract: Contract): Specialist {
             unresolved: resolution.unresolved,
             message: `${
               resolution.shared?.length
-                ? resolution.shared.map((a) => `"${a.name}" is exported by ${a.candidates.length} components (${a.candidates.map((c) => `${c.id} from ${c.importPath ?? c.files[0]}`).join(", ")}).`).join(" ")
+                ? resolution.shared.map((a) => `"${a.name}" is exported by ${a.candidates.length} components (${a.candidates.map((c) => c.importPath ?? c.files[0]).join(", ")}).`).join(" ")
                 : "The question does not name a specific component."
-            } Ask again with component set to the id of one of the options.${notInSystem(resolution.unresolved)}`,
+            } Ask again with component set to the import path of one of the options.${notInSystem(resolution.unresolved)}`,
             clarification: {
               question: "Which of these components do you mean?",
               options: resolution.candidates.map((c) => ({ kind: "component", id: c.id, name: c.name, description: toRef(c).intent })),

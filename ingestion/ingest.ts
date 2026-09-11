@@ -279,7 +279,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       severity: "warning",
       kind: "duplicate-component-name",
       subject: { type: "component", id: shared.map((c) => c.id).join("+") },
-      message: `${shared.length} components are named ${shared[0]!.name}: ${shared.map((c) => `${c.id} (${c.files[0]})`).join(", ")}. Agents asking for ${shared[0]!.name} by name are asked to choose by id.`,
+      message: `${shared.length} components are named ${shared[0]!.name}: ${shared.map((c) => `${c.id} (${c.files[0]})`).join(", ")}. Agents asking for ${shared[0]!.name} by name are asked to choose by import path.`,
       location: { file: shared[0]!.files[0]! },
       suggestion: "Rename one of them, or remove the one agents should not use.",
     });

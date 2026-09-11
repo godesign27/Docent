@@ -9,6 +9,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { Concierge, MemoryReviewStore, type CallerInfo } from "../../concierge/concierge.js";
 import { ClientConfig } from "../../config/schema.js";
 import { buildContract, type IngestResult } from "../../ingestion/ingest.js";
+import { ComponentIndex } from "../../specialists/components/resolve.js";
 import { resolveSource } from "../../ingestion/source.js";
 import { detectRepo, type Proposal } from "../detect.js";
 import { buildConfig } from "../render.js";
@@ -81,6 +82,17 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
   "src/components/ui/toaster.tsx": `export function Toaster() {
   return <ol className="bg-background" />;
 }
+`,
+  // An imported kit: PascalCase files, a default export next to the named one, a name the governed kit already uses.
+  "src/components/ai/ai-launcher.tsx": `export function AILauncher() {
+  return <button className="bg-primary" />;
+}
+`,
+  "src/components/ai/atomic/ai-launcher/AILauncher.tsx": `export function AILauncher({ label }: { label?: string }) {
+  return <button className="bg-background">{label}</button>;
+}
+
+export default AILauncher;
 `,
   "src/components/ui/sonner.tsx": `export const Toaster = () => {
   return <section className="bg-background" />;
@@ -159,8 +171,8 @@ describe("ingesting it", () => {
   });
 
   it("reports two components with the same name", () => {
-    const gap = built.contract.gaps.find((g) => g.kind === "duplicate-component-name");
-    expect(gap?.subject.id).toBe("sonner+toaster");
+    const gaps = built.contract.gaps.filter((g) => g.kind === "duplicate-component-name");
+    expect(gaps.map((g) => g.subject.id).sort()).toEqual(["ai-launcher+AILauncher", "sonner+toaster"]);
   });
 
   it("records agreed rules with their origin and maps checks to them", () => {
@@ -181,6 +193,37 @@ describe("ingesting it", () => {
     const { contract } = await buildContract(clash, resolveSource(clash));
     expect(contract.governance.rules.filter((r) => r.id === "NO_THIRD_PARTY_UI")).toHaveLength(1);
     expect(contract.gaps.some((g) => g.kind === "unresolvable-config-value" && g.subject.id === "NO_THIRD_PARTY_UI")).toBe(true);
+  });
+});
+
+describe("an imported kit alongside the governed one", () => {
+  it("reads export function X plus export default X as one part", () => {
+    const kit = built.contract.components.find((c) => c.id === "AILauncher")!;
+    expect(kit.parts.map((p) => [p.name, p.primary])).toEqual([["AILauncher", true]]);
+  });
+
+  it("doesn't let a PascalCase id settle a name another component also uses", async () => {
+    const byName = await concierge().ask({ question: "What props does AILauncher take?" }, caller);
+    expect(byName.status).toBe("clarification-needed");
+    expect(byName.validation.passed).toBe(true);
+    const byPath = await concierge().ask({ question: "What props does it take?", component: "@/components/ai/atomic/ai-launcher/AILauncher" }, caller);
+    expect(byPath.components.map((c) => c.id)).toEqual(["AILauncher"]);
+    expect(byPath.validation.passed).toBe(true);
+    const fetched = await concierge().getComponent({ components: ["@/components/ai/ai-launcher"] }, caller);
+    expect(fetched.components.map((c) => c.id)).toEqual(["ai-launcher"]);
+  });
+
+  it("means the inventoried component when only one of the namesakes is in the inventory", () => {
+    const contract = structuredClone(built.contract);
+    const governed = contract.components.find((c) => c.id === "ai-launcher")!;
+    governed.manifest = { id: "ai:ai-launcher", status: null, category: null, notes: {}, source: { file: "components.json" } } as unknown as typeof governed.manifest;
+    expect(new ComponentIndex(contract).lookup("AILauncher").map((c) => c.id)).toEqual(["ai-launcher"]);
+  });
+
+  it("doesn't match type names written as prose", () => {
+    const index = new ComponentIndex(built.contract);
+    expect(index.lookup("ButtonProps").map((c) => c.id)).toEqual(["button"]);
+    expect(index.lookup("ButtonProps", { typeNames: false })).toEqual([]);
   });
 });
 

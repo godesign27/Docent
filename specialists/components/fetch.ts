@@ -85,7 +85,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
     for (const name of input.components) {
       const hits = index.lookup(name);
       const hit = hits[0];
-      if (hits.length > 1) ambiguous.push({ name, candidates: hits.map(toRef) });
+      if (hits.length > 1) ambiguous.push({ name, candidates: hits.map((c) => ({ ...toRef(c), importPath: c.importPath })) });
       else if (!hit) unresolved.push(name);
       else if (inventory && hit.manifest === null) rejected.push({ id: hit.id, name: hit.name, reason: "Not in the component inventory, so it may not be used." });
       else if (!roots.includes(hit.id)) roots.push(hit.id);
@@ -117,7 +117,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
         ? [`${rejected.map((r) => r.name).join(", ")} ${rejected.length === 1 ? "is" : "are"} not in the component inventory and ${rejected.length === 1 ? "was" : "were"} not delivered.`]
         : []),
       ...ambiguous.map(
-        (a) => `"${a.name}" is exported by ${a.candidates.length} components (${a.candidates.map((c) => c.id).join(", ")}) and was not delivered; request it again by id.`,
+        (a) => `"${a.name}" is exported by ${a.candidates.length} components (${a.candidates.map((c) => c.importPath ?? c.id).join(", ")}) and was not delivered; request it again by import path.`,
       ),
     ];
 

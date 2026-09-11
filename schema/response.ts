@@ -144,7 +144,7 @@ export const FetchResponse = z.object({
   instructions: z.array(z.string()),
   unresolved: z.array(z.string()).describe("Requested names that do not exist in this design system"),
   ambiguous: z
-    .array(z.object({ name: z.string(), candidates: z.array(ComponentRef) }))
+    .array(z.object({ name: z.string(), candidates: z.array(ComponentRef.extend({ importPath: z.string().nullable() })) }))
     .describe("Requested names that more than one component exports; not delivered until requested by id"),
   rejected: z.array(z.object({ id: z.string(), name: z.string(), reason: z.string() })).describe("Components that exist in source but may not be used"),
   alternatives: z.array(ComponentRef),

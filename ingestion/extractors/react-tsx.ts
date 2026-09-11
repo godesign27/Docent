@@ -120,9 +120,12 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
   const otherExports: string[] = [];
   const inheritedFrom = new Set<string>();
 
+  const namedExports = new Set([...exported.keys()].filter((e) => e !== "default"));
   for (const [exportName, localName] of [...exported].sort(([a], [b]) => a.localeCompare(b))) {
     const decl = values.get(localName);
     const name = exportName === "default" ? localName : exportName;
+    // `export function Foo` plus `export default Foo` is one component, not two.
+    if (exportName === "default" && namedExports.has(localName)) continue;
     if (!decl) {
       if (types.has(localName)) typeExports.add(name); // `export { ButtonProps }` without the type modifier
       continue;

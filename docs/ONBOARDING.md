@@ -98,7 +98,7 @@ Open `contracts/<client-id>/gaps.md`. Every gap is either a config problem (fix 
 | `spec-drift` | The client's spec disagrees with source | Hand off (source wins meanwhile) |
 | `non-token-value` | Components use colors that aren't tokens | Hand off |
 | `missing-usage-docs`, `undocumented-token`, `placeholder-documentation` | Documentation gaps | Hand off; not blocking |
-| `duplicate-component-name` | Two components export the same name (shadcn's `toaster.tsx` and `sonner.tsx` both export `Toaster`) | Hand off; agents are asked to choose by id meanwhile |
+| `duplicate-component-name` | Two components export the same name (shadcn's `toaster.tsx` and `sonner.tsx` both export `Toaster`) | Hand off; agents are asked to choose by import path meanwhile |
 | `unknown-token-type` | A variable whose value (e.g. `220 9% 50%`) doesn't say what it is, with no Tailwind binding and no CSS using it | Hand off if the variables are meant for use; add the Tailwind binding or the missing CSS file otherwise |
 | `no-primary-export` | A file of related parts with no part named after the file (`chart.tsx`, `resizable.tsx`) | Nothing to do; agents ask for the parts by name |
 | `inherited-props-not-expanded`, `framework-defaults-not-captured` | Known limits of static reading | Nothing to do |
@@ -260,7 +260,7 @@ Then restart the local server, or `fly deploy` again. In CI, `npm run ingest -- 
 | Every token has a `missing-default-mode` gap | `defaultMode` doesn't match the mode name used for `:root` / `@theme`. |
 | Eval case with `#` behaves oddly | Quote the `ask:` value. |
 | `Invalid eval batch` | The message names the case and field; `outcome` and `status` accept only the values listed in step 6. |
-| Agent gets "is exported by 2 components" | Two components share a name. Ask with `component` set to the id, or request the id in `get_component`. |
+| Agent gets "is exported by 2 components" | Two components share a name. Ask with `component` set to the import path, or request the import path in `get_component`. |
 | Every governance answer is a warning | No rule has a severity of high or critical, or checks aren't mapped to rules. See step 5, including `agreedRules`. |
 | `No contract for <client>` when serving | Run `ingest` or `onboard` first. |
 | `Refusing to serve on 0.0.0.0 without a token` | Set `DOCENT_TOKEN` (24+ characters) or bind to 127.0.0.1. |

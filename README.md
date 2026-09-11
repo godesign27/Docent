@@ -202,7 +202,7 @@ Every value in a contract is either read from the repo with a source location, o
 - `non-token-value` — styles using values that aren't tokens (`bg-black/80`, `text-[#ff00aa]`)
 - `unresolved-token-reference` — a token or Tailwind binding pointing at a variable that doesn't exist
 - `not-in-manifest` / `manifest-entry-without-source` — the inventory and the source disagree
-- `duplicate-component-name` — two components export the same name (e.g. two `Toaster`s); agents asking by name are asked to choose by id
+- `duplicate-component-name` — two components export the same name (e.g. two `Toaster`s); agents asking by name are asked to choose by import path
 - `unknown-token-type`, `missing-default-mode`, `conflicting-token-definition`, `undocumented-token`, `props-not-resolved`, …
 
 The full list lives in `GapKind` in [`schema/contract.ts`](schema/contract.ts).

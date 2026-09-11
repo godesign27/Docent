@@ -30,27 +30,45 @@ export interface AmbiguousName {
 
 export class ComponentIndex {
   private readonly byId = new Map<string, ComponentContract>();
+  /** Import paths and file paths: always unambiguous. */
+  private readonly byPath = new Map<string, ComponentContract>();
+  private readonly exactNames = new Map<string, ComponentContract[]>();
   /** Ids and names, which win over part and type names. */
   private readonly byName = new Map<string, ComponentContract[]>();
   private readonly byPart = new Map<string, ComponentContract[]>();
+  private readonly byType = new Map<string, ComponentContract[]>();
+  private readonly inventory: boolean;
 
   constructor(readonly contract: Contract) {
     for (const c of contract.components) {
       this.byId.set(c.id, c);
+      for (const path of [c.importPath, ...c.files]) if (path) this.byPath.set(path, c);
+      this.exactNames.set(c.name, [...(this.exactNames.get(c.name) ?? []), c]);
       for (const key of [c.id, c.name, c.manifest?.id, c.guidance?.id]) add(this.byName, key, c);
-      for (const key of [...c.parts.map((p) => p.name), ...c.typeExports]) add(this.byPart, key, c);
+      for (const key of c.parts.map((p) => p.name)) add(this.byPart, key, c);
+      for (const key of c.typeExports) add(this.byType, key, c);
     }
+    this.inventory = contract.components.some((c) => c.manifest !== null);
   }
 
   /**
-   * Every component a name could mean. An exact id is unambiguous; otherwise
-   * two components exporting the same name (e.g. two Toasters) are both returned.
+   * Every component a name could mean. An import path or file path is unambiguous, and so is an exact
+   * id nobody else uses as a name; otherwise two components exporting the same name are both returned.
    */
-  lookup(key: string): ComponentContract[] {
+  lookup(key: string, options: { typeNames?: boolean } = {}): ComponentContract[] {
+    const path = this.byPath.get(key);
+    if (path) return [path];
+    // An exact id wins, unless another component carries that exact name (id AILauncher vs name AILauncher).
     const exact = this.byId.get(key);
-    if (exact) return [exact];
+    if (exact && (this.exactNames.get(key) ?? []).every((c) => c === exact)) return [exact];
     const k = normalizeKey(key);
-    return this.byName.get(k) ?? this.byPart.get(k) ?? [];
+    const hits = this.byName.get(k) ?? this.byPart.get(k) ?? ((options.typeNames ?? true) ? this.byType.get(k) : undefined) ?? [];
+    // With a closed inventory, a name shared with components outside it means the inventoried one.
+    if (hits.length > 1 && this.inventory) {
+      const allowed = hits.filter((c) => c.manifest !== null);
+      if (allowed.length === 1) return allowed;
+    }
+    return hits;
   }
 
   /** The one component a name means, or undefined when it means none or several. */
@@ -59,13 +77,6 @@ export class ComponentIndex {
     return hits.length === 1 ? hits[0] : undefined;
   }
 
-  /** Names that more than one component answers to. */
-  duplicateNames(): AmbiguousName[] {
-    return [...this.byName.values()]
-      .filter((list) => list.length > 1)
-      .map((candidates) => ({ name: candidates[0]!.name, candidates }))
-      .filter((d, i, all) => all.findIndex((o) => normalizeKey(o.name) === normalizeKey(d.name)) === i);
-  }
 }
 
 function add(map: Map<string, ComponentContract[]>, key: string | null | undefined, c: ComponentContract) {
@@ -115,7 +126,8 @@ export function findMentions(index: ComponentIndex, question: string) {
     let matched = false;
     for (let n = Math.min(3, tokens.length - i); n >= 1; n--) {
       const words = tokens.slice(i, i + n);
-      const hits = index.lookup(n === 1 ? words[0]! : words.join(""));
+      // Type names only count written as one word ("AISuggestion"), not as prose ("AI suggestion").
+      const hits = n === 1 ? index.lookup(words[0]!) : index.lookup(words.join(""), { typeNames: false });
       if (hits.length === 0) continue;
       const codeLike = words.some((w) => /[A-Z]/.test(w) || w.includes(":") || backticked.has(w));
       if (hits.length > 1) {
