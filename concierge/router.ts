@@ -32,6 +32,7 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions, enable
   if (m.components.strong.length) add("components", 3, "component-named", names(m.components.strong));
   else if (m.components.weak.length) add("components", 1, "component-word", names(m.components.weak));
   if (m.components.unresolved.length) add("components", 3, "unknown-component-named", m.components.unresolved.join(", "));
+  if (m.components.ambiguous.length) add("components", 3, "shared-component-name", m.components.ambiguous.map((a) => `${a.name} (${a.candidates.map((c) => c.id).join(", ")})`).join("; "));
   if (m.words.componentApi && (m.components.strong.length || m.components.weak.length)) add("components", 2, "component-api-question", m.words.componentApi);
   if (m.words.inventory) add("components", 3, "inventory-question", m.words.inventory);
 

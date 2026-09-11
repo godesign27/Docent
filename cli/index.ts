@@ -68,6 +68,20 @@ function clientIds(): string[] {
     .map((f) => f.replace(/\.(ya?ml|json)$/, ""));
 }
 
+/** Reads an eval batch, naming the case and field of anything invalid. */
+function readEvalBatch(file: string): EvalBatch {
+  const raw = parseYaml(readFileSync(file, "utf8")) as unknown;
+  const parsed = EvalBatch.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  const lines = parsed.error.issues.map((issue) => {
+    const [index, ...path] = issue.path;
+    const name = typeof index === "number" && Array.isArray(raw) ? (raw[index] as { name?: string } | undefined)?.name : undefined;
+    const where = typeof index === "number" ? `case ${index + 1}${name ? ` "${name}"` : ""}` : "batch";
+    return `  ${where}${path.length ? `, ${path.join(".")}` : ""}: ${issue.message}`;
+  });
+  throw new ConfigError(`Invalid eval batch ${file}:\n${lines.join("\n")}`);
+}
+
 async function main(): Promise<number> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -180,7 +194,7 @@ async function main(): Promise<number> {
         writeFileSync(file, renderEval(config.client, starterEval(contract, config)));
         console.log(`  Wrote a starter batch to ${file}; replace it with real requests.`);
       }
-      const results = await runEval(contract, config.escalation, EvalBatch.parse(parseYaml(readFileSync(file, "utf8"))), DOCENT_VERSION, config.specialists);
+      const results = await runEval(contract, config.escalation, readEvalBatch(file), DOCENT_VERSION, config.specialists);
       for (const r of results.filter((x) => !x.passed)) console.log(`  ✖ ${r.case.name ?? r.case.ask}: ${r.failures.join("; ")}`);
       const passed = results.filter((x) => x.passed).length;
       console.log(`  ${passed}/${results.length} passed`);
@@ -198,7 +212,7 @@ async function main(): Promise<number> {
     // Prefer a stable path (e.g. /opt/homebrew/bin/node) over a version-specific one that breaks on upgrade.
     const node = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"].find((p) => existsSync(p) && realpathSync(p) === realpathSync(process.execPath)) ?? process.execPath;
     console.log(`\n▸ Connect an agent (local)\n  Cursor ~/.cursor/mcp.json or Claude Code:\n  "docent-${id}": { "command": "${node}", "args": ["${bin}", "serve", "--client", "${id}"] }`);
-    console.log(`  claude mcp add docent-${id} -- node ${bin} serve --client ${id}`);
+    console.log(`  claude mcp add docent-${id} -- ${node} ${bin} serve --client ${id}`);
     console.log(`\n▸ Deploy for a team\n  DOCENT_TOKEN=<secret> node ${bin} serve --client ${id} --http --host 0.0.0.0 --port 8080   (see docs/ONBOARDING.md)`);
 
     const total = timings.reduce((sum, [, ms]) => sum + ms, 0);
@@ -265,7 +279,7 @@ async function main(): Promise<number> {
   if (command === "eval") {
     const file = values.file ?? join(CLIENTS_DIR, `${config.client.id}.eval.yaml`);
     if (!existsSync(file)) throw new ConfigError(`No eval batch at ${file}`);
-    const batch = EvalBatch.parse(parseYaml(readFileSync(file, "utf8")));
+    const batch = readEvalBatch(file);
     const results = await runEval(loadContract(config), config.escalation, batch, DOCENT_VERSION, config.specialists);
     for (const r of results) {
       const label = r.case.name ?? r.case.ask;

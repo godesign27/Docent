@@ -85,6 +85,7 @@ export function createMcpServer(
           "Returns every file to write (the components, the components they depend on, and shared files such as lib/utils), " +
           "the npm packages to install with versions, the path alias the source expects, and step-by-step instructions. " +
           "Files are byte-identical to the design system at the contract's commit. Pass installed to skip components already in the project. " +
+          "Names in unresolved do not exist, so do not build them; a name in ambiguous is exported by several components, so request one of its candidates by id. " +
           "Call get_foundation first in a new project.",
         inputSchema: GetComponentInput.shape,
         outputSchema: FetchResponse.shape,

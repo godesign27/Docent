@@ -66,7 +66,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
   const aliasInstruction = aliases.length
     ? [`The source imports through ${aliases.map((a) => `${a.alias} → ${a.target || "project root"}`).join(", ")}. Configure the same alias in tsconfig.json "paths" and in the bundler (e.g. Vite resolve.alias) if the project does not have it.`]
     : [];
-  const empty = { components: [], files: [], packages: [], pathAliases: aliases, instructions: [], unresolved: [], rejected: [], alternatives: [] };
+  const empty = { components: [], files: [], packages: [], pathAliases: aliases, instructions: [], unresolved: [], ambiguous: [], rejected: [], alternatives: [] };
 
   function getComponent(input: GetComponentInput): FetchDraft {
     const skipIds = new Set<string>();
@@ -79,11 +79,14 @@ export function createDistributor(contract: Contract, sources: Record<string, st
 
     const inventory = hasInventory(contract);
     const unresolved: string[] = [];
+    const ambiguous: FetchResponse["ambiguous"] = [];
     const rejected: FetchResponse["rejected"] = [];
     const roots: string[] = [];
     for (const name of input.components) {
-      const hit = index.get(name);
-      if (!hit) unresolved.push(name);
+      const hits = index.lookup(name);
+      const hit = hits[0];
+      if (hits.length > 1) ambiguous.push({ name, candidates: hits.map(toRef) });
+      else if (!hit) unresolved.push(name);
       else if (inventory && hit.manifest === null) rejected.push({ id: hit.id, name: hit.name, reason: "Not in the component inventory, so it may not be used." });
       else if (!roots.includes(hit.id)) roots.push(hit.id);
     }
@@ -113,15 +116,19 @@ export function createDistributor(contract: Contract, sources: Record<string, st
       ...(rejected.length
         ? [`${rejected.map((r) => r.name).join(", ")} ${rejected.length === 1 ? "is" : "are"} not in the component inventory and ${rejected.length === 1 ? "was" : "were"} not delivered.`]
         : []),
+      ...ambiguous.map(
+        (a) => `"${a.name}" is exported by ${a.candidates.length} components (${a.candidates.map((c) => c.id).join(", ")}) and was not delivered; request it again by id.`,
+      ),
     ];
 
     if (closure.length === 0) {
       const alreadyInstalled = roots.length > 0;
       return {
         ...empty,
-        status: alreadyInstalled ? "delivered" : unresolved.length ? "not-found" : "rejected",
+        status: alreadyInstalled ? "delivered" : ambiguous.length ? "clarification-needed" : unresolved.length ? "not-found" : "rejected",
         message: alreadyInstalled ? "Everything requested is already installed in this project." : notices.join(" "),
         unresolved,
+        ambiguous,
         rejected,
         alternatives,
       };
@@ -139,6 +146,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
       files,
       packages: sortedPackages,
       unresolved,
+      ambiguous,
       rejected,
       alternatives,
       instructions: [

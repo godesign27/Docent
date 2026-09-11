@@ -4,7 +4,7 @@
  * TODO for the person onboarding the client, not a guess written into config.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, posix } from "node:path";
 import postcss from "postcss";
 import type { ClientConfig } from "../config/schema.js";
 import { parseMarkdown } from "../ingestion/docs.js";
@@ -86,22 +86,51 @@ export async function detectRepo(root: string): Promise<Proposal> {
 
   // --- Tokens: CSS variables -----------------------------------------------------------------
   const tokens: Ingestion["tokens"] = [];
-  const cssFiles: { file: string; vars: number; contexts: Set<string>; tailwindEntry: boolean }[] = [];
+  const cssFiles: { file: string; vars: number; contexts: Set<string>; tailwindEntry: boolean; imports: string[] }[] = [];
   // Demo and documentation styles aren't the design system's theme.
   for (const file of await files(["**/*.css"], ["**/preview/**", "**/examples/**", "**/stories/**", "**/docs/**", "**/public/**", "**/ui-kit/**", "**/playground/**", "**/demo/**"])) {
     const text = readFileSync(join(root, file), "utf8");
-    const info = { file, vars: 0, contexts: new Set<string>(), tailwindEntry: /@tailwind\s+base|@import\s+["']tailwindcss["']/.test(text) };
+    const info = { file, vars: 0, contexts: new Set<string>(), tailwindEntry: false, imports: [] as string[] };
     try {
-      postcss.parse(text).walkDecls((decl) => {
+      const ast = postcss.parse(text);
+      ast.walkDecls((decl) => {
         if (!decl.prop.startsWith("--")) return;
         info.vars++;
         contextKeys(decl.parent).forEach((c) => info.contexts.add(c));
       });
+      // Read from the parsed rules, not the text: a comment may quote an entry file's directives.
+      ast.walkAtRules((rule) => {
+        if ((rule.name === "tailwind" && rule.params.trim() === "base") || (rule.name === "import" && /^["']tailwindcss["']/.test(rule.params))) info.tailwindEntry = true;
+      });
+      ast.walkAtRules("import", (rule) => {
+        const target = rule.params.match(/^(?:url\()?\s*["']?(\.{1,2}\/[^"')\s]+)/)?.[1];
+        if (target) info.imports.push(posix.normalize(posix.join(posix.dirname(file), target)));
+      });
     } catch {
       continue;
     }
-    if (info.vars >= 3) cssFiles.push(info);
+    if (info.vars >= 3 || info.tailwindEntry) cssFiles.push(info);
   }
+  // With a Tailwind entry stylesheet, the theme is what it loads. Other CSS files with variables
+  // (copy-paste kits, per-feature overrides) are left out and listed for review.
+  const entries = cssFiles.filter((f) => f.tailwindEntry);
+  if (entries.length) {
+    const reachable = new Set<string>();
+    const walk = (file: string) => {
+      if (reachable.has(file)) return;
+      reachable.add(file);
+      cssFiles.find((f) => f.file === file)?.imports.forEach(walk);
+    };
+    entries.forEach((e) => walk(e.file));
+    const leftOut = cssFiles.filter((f) => !reachable.has(f.file) && f.vars >= 3);
+    if (leftOut.length) {
+      todos.push(
+        `${leftOut.map((f) => `${f.file} (${f.vars} variables)`).join(", ")} ${leftOut.length === 1 ? "is" : "are"} not imported by ${entries.map((e) => e.file).join(", ")}, so ${leftOut.length === 1 ? "it was" : "they were"} left out of tokens. Add ${leftOut.length === 1 ? "it" : "them"} if the app loads ${leftOut.length === 1 ? "it" : "them"} another way (e.g. imported from a layout component).`,
+      );
+    }
+    for (let i = cssFiles.length - 1; i >= 0; i--) if (!reachable.has(cssFiles[i]!.file)) cssFiles.splice(i, 1);
+  }
+  for (let i = cssFiles.length - 1; i >= 0; i--) if (cssFiles[i]!.vars < 3) cssFiles.splice(i, 1);
   const contexts = new Set(cssFiles.flatMap((f) => [...f.contexts]));
   const hasTheme = contexts.has("@theme");
   const modes: Record<string, string> = {};
@@ -335,6 +364,7 @@ export async function detectRepo(root: string): Promise<Proposal> {
     : [];
   ingestion.governance = {
     rules,
+    agreedRules: [],
     approvedImports,
     restrictedPackages: UI_LIBRARIES.filter((p) => !Object.keys(deps).some((d) => (p.endsWith("/*") ? d.startsWith(p.slice(0, -1)) : d === p))),
     checks,
@@ -346,7 +376,9 @@ export async function detectRepo(root: string): Promise<Proposal> {
     );
     todos.push(`Confirm governance.checks: ${Object.entries(checks).map(([c, r]) => `${c} → ${r}`).join(", ") || "no check matched a rule's wording"}.`);
   } else {
-    todos.push("No machine-readable or markdown rules found. Checks will run but can only warn until they are mapped to rules.");
+    todos.push(
+      "No rules found in the repo, so every check can only warn. Ask the design-system owner which rules must block, record them under governance.agreedRules with a severity, and map checks to them (runbook step 5).",
+    );
   }
 
   // --- Docs -----------------------------------------------------------------------------------------------
@@ -358,7 +390,7 @@ export async function detectRepo(root: string): Promise<Proposal> {
   else todos.push("No component docs found; every component will get a missing-usage-docs gap. Point docs.components at wherever usage guidance lives.");
 
   // --- Foundation --------------------------------------------------------------------------------------------
-  const entryCss = cssFiles.find((f) => f.tailwindEntry)?.file ?? (await files(["src/{index,globals,global,app,main}.css", "app/globals.css", "styles/globals.css"]))[0];
+  const entryCss = entries[0]?.file ?? (await files(["src/{index,globals,global,app,main}.css", "app/globals.css", "styles/globals.css"]))[0];
   if (entryCss) {
     const foundationFiles = [entryCss, ...tailwindConfig, ...(await files(["postcss.config.{js,cjs,mjs}"]))];
     const buildPackages = ["tailwindcss", "postcss", "autoprefixer", "@tailwindcss/vite", "@tailwindcss/postcss"].filter((p) => p in deps);

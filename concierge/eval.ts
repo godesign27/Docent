@@ -29,6 +29,7 @@ export const EvalCase = z.object({
 });
 export type EvalCase = z.infer<typeof EvalCase>;
 export const EvalBatch = z.array(EvalCase);
+export type EvalBatch = z.infer<typeof EvalBatch>;
 
 export interface EvalResult {
   case: EvalCase;

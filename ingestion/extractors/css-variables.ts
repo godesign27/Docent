@@ -4,6 +4,7 @@
  * (`--color-brand` gives `bg-brand`), so they are returned as Tailwind bindings.
  */
 import postcss, { type AtRule, type ChildNode, type Container } from "postcss";
+import type { SourceLocation, TokenType } from "../../schema/contract.js";
 import type { GapCollector } from "../gaps.js";
 import { cssVarId, cssVarRefs, type RawToken, type TailwindEntry } from "../tokens/values.js";
 
@@ -25,6 +26,16 @@ const THEME_NAMESPACES: [string, string][] = [
   ["--ease-", "transitionTimingFunction"],
 ];
 const PURE_VAR = /^var\(\s*(--[\w-]+)\s*\)$/;
+/** A variable holding color channels: hsl(var(--x)), rgb(var(--x) / 0.5), oklch(var(--x)). */
+const COLOR_WRAPPED_VAR = /\b(?:hsla?|rgba?|oklch|oklab|lab|lch|hwb)\(\s*var\(\s*(--[\w-]+)\s*\)/gi;
+const COLOR_PROPERTY = /^(color|background-color|border(-(top|right|bottom|left|block|inline))?-color|outline-color|text-decoration-color|caret-color|accent-color|fill|stroke|stop-color)$/i;
+
+/** Evidence of a variable's type from how CSS uses it. */
+export interface TokenUsage {
+  variable: string;
+  type: TokenType;
+  source: SourceLocation;
+}
 
 const TRANSPARENT_AT_RULES = new Set(["layer"]);
 
@@ -34,7 +45,7 @@ export function extractCssVariables(
   modes: Record<string, string>,
   ignorePrefixes: string[],
   gaps: GapCollector,
-): { tokens: RawToken[]; tailwind: TailwindEntry[] } {
+): { tokens: RawToken[]; tailwind: TailwindEntry[]; usages: TokenUsage[] } {
   let root: postcss.Root;
   try {
     root = postcss.parse(text, { from: file });
@@ -46,7 +57,7 @@ export function extractCssVariables(
       message: `Could not parse ${file}: ${(err as Error).message}`,
       location: { file },
     });
-    return { tokens: [], tailwind: [] };
+    return { tokens: [], tailwind: [], usages: [] };
   }
 
   const normalize = (s: string) => s.replace(/\s+/g, " ").replace(/"/g, "'").trim();
@@ -55,7 +66,16 @@ export function extractCssVariables(
   const tailwind: TailwindEntry[] = [];
   const unmapped = new Map<string, number>();
 
+  const usages: TokenUsage[] = [];
+
   root.walkDecls((decl) => {
+    // How a variable is used can say what it is: hsl(var(--x)), or var(--x) as a background-color.
+    const line0 = decl.source?.start?.line;
+    for (const m of decl.value.matchAll(COLOR_WRAPPED_VAR)) usages.push({ variable: m[1]!, type: "color", source: line0 ? { file, line: line0 } : { file } });
+    if (COLOR_PROPERTY.test(decl.prop)) {
+      const bare = decl.value.trim().match(PURE_VAR)?.[1];
+      if (bare) usages.push({ variable: bare, type: "color", source: line0 ? { file, line: line0 } : { file } });
+    }
     if (!decl.prop.startsWith("--")) return;
     if (ignorePrefixes.some((p) => decl.prop.startsWith(p))) return;
 
@@ -105,7 +125,7 @@ export function extractCssVariables(
       suggestion: `Add "${context}" to this extractor's modes if those variables are design tokens.`,
     });
   }
-  return { tokens, tailwind };
+  return { tokens, tailwind, usages };
 }
 
 function inThemeInline(parent: Container | undefined): boolean {

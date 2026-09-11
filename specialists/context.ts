@@ -7,7 +7,7 @@
 import { ARBITRARY_COLOR, ClassIndex, PALETTE } from "../ingestion/tokens/tailwind-classes.js";
 import type { ComponentContract, Contract, GovernanceRule, PatternContract, TokenContract } from "../schema/contract.js";
 import type { AskInput } from "../schema/response.js";
-import { ComponentIndex, findMentions, INVENTORY_QUESTION, normalizeKey, terms } from "./components/resolve.js";
+import { type AmbiguousName, ComponentIndex, findMentions, INVENTORY_QUESTION, normalizeKey, terms } from "./components/resolve.js";
 
 /** Common UI libraries by the names people use for them, mapped to their npm packages. */
 const UI_LIBRARIES: [RegExp, string][] = [
@@ -35,7 +35,7 @@ const NEW_DEPENDENCY = /\b((npm|yarn|pnpm|bun) (i|install|add)\b|install(ing)? (
 const RAW_COLOR = /(#[0-9a-f]{3,8}\b|\brgba?\(\s*\d|\bhsla?\(\s*\d)/i;
 
 export interface Mentions {
-  components: { strong: ComponentContract[]; weak: ComponentContract[]; unresolved: string[] };
+  components: { strong: ComponentContract[]; weak: ComponentContract[]; unresolved: string[]; ambiguous: AmbiguousName[] };
   tokens: TokenContract[];
   unknownTokens: string[];
   patterns: PatternContract[];
@@ -126,13 +126,14 @@ export function extractMentions(index: ContractIndex, input: AskInput): Mentions
     const pair = [m[1] ?? m[3], m[2] ?? m[4]].filter((w): w is string => Boolean(w));
     if (!pair.some((w) => knownNames.has(w))) continue;
     for (const w of pair) {
-      if (!index.components.get(w) && !UI_LIBRARIES.some(([re]) => re.test(w)) && !found.unresolved.includes(w)) found.unresolved.push(w);
+      if (!index.components.lookup(w).length && !UI_LIBRARIES.some(([re]) => re.test(w)) && !found.unresolved.includes(w)) found.unresolved.push(w);
     }
   }
   if (input.component) {
-    const hit = index.components.get(input.component);
-    if (hit && !found.strong.includes(hit)) found.strong.unshift(hit);
-    if (!hit && !found.unresolved.includes(input.component)) found.unresolved.unshift(input.component);
+    const hits = index.components.lookup(input.component);
+    if (hits.length === 1 && !found.strong.includes(hits[0]!)) found.strong.unshift(hits[0]!);
+    if (hits.length > 1 && !found.ambiguous.some((a) => a.name === input.component)) found.ambiguous.unshift({ name: input.component, candidates: hits });
+    if (hits.length === 0 && !found.unresolved.includes(input.component)) found.unresolved.unshift(input.component);
   }
 
   // Tokens: CSS variables, utility classes and multi-word token ids named outright;

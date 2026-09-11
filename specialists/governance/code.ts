@@ -105,7 +105,7 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
   // Local components that re-create something the design system already has.
   for (const name of locals) {
     if (!/^[A-Z]/.test(name)) continue;
-    const existing = index.components.get(name);
+    const existing = index.components.lookup(name)[0];
     const sameName = existing && (existing.name === name || existing.parts.some((p) => p.name === name));
     if (existing && sameName && (!inventory || existing.manifest !== null)) {
       const decl = sf.statements.find((s) => (ts.isFunctionDeclaration(s) && s.name?.text === name) || (ts.isVariableStatement(s) && s.declarationList.declarations.some((d) => ts.isIdentifier(d.name) && d.name.text === name)));
@@ -143,7 +143,7 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
           add("compound-structure", `<${tag}> must be inside <${declared.parent}>`, opening);
         }
       } else if (/^[A-Z]/.test(root) && !otherImports.has(root) && !locals.has(root) && hasImports) {
-        const known = index.components.get(root);
+        const known = index.components.lookup(root)[0];
         add(
           "unindexed-component",
           known ? `<${tag}> is used without importing it from ${known.importPath}` : `<${tag}> is not a component in the design system`,

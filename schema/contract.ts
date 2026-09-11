@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 
-export const CONTRACT_SCHEMA_VERSION = "0.4.0";
+export const CONTRACT_SCHEMA_VERSION = "0.5.0";
 
 export const SourceLocation = z.object({
   file: z.string().describe("Path relative to the design-system root"),
@@ -39,6 +39,7 @@ export const GapKind = z.enum([
   "missing-usage-docs",
   "placeholder-documentation",
   "no-primary-export",
+  "duplicate-component-name",
   "props-not-resolved",
   "inherited-props-not-expanded",
   "import-path-unknown",
@@ -260,7 +261,7 @@ export const TokenContract = z.object({
   name: z.string().describe("Name as authored, e.g. --primary or color.brand.primary"),
   cssVariable: z.string().nullable(),
   type: TokenType,
-  typeEvidence: z.enum(["declared", "tailwind-section", "value-format"]).nullable(),
+  typeEvidence: z.enum(["declared", "tailwind-section", "value-format", "css-usage"]).nullable(),
   category: TokenCategory,
   values: z.record(z.string(), TokenValue).describe("Keyed by mode, e.g. light / dark / default"),
   references: z.array(z.string()).describe("Ids of tokens this token's value depends on"),
@@ -328,7 +329,8 @@ export const GovernanceRule = z.object({
   category: z.string(),
   response: z.string().nullable().describe("What the client wants an agent told when this rule is hit"),
   reference: z.string().nullable().describe("Document the client cites for the rule"),
-  source: SourceLocation,
+  origin: z.enum(["repository", "agreed"]).describe("repository: written in the design system; agreed: recorded in the Docent config during onboarding"),
+  source: SourceLocation.describe("For agreed rules, the Docent client config that records them"),
 });
 export type GovernanceRule = z.infer<typeof GovernanceRule>;
 

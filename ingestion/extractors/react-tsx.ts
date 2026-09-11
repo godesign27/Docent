@@ -16,6 +16,8 @@ export interface ExtractedModule {
   dependencies: string[];
   /** Class-name strings used for styling, for token cross-referencing. */
   classStrings: { value: string; line: number }[];
+  /** CSS custom properties the module sets itself, e.g. style={{ "--sidebar-width": w }}. */
+  localCssVariables: string[];
   /** Variant definitions (cva/tv) declared in this module, by variable name. */
   variantDefs: Map<string, VariantAxis[]>;
   /** Imported local name -> module specifier. */
@@ -209,6 +211,7 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
     typeExports: [...typeExports].sort(),
     dependencies: [...dependencies].sort(),
     classStrings: collectClassStrings(sf),
+    localCssVariables: collectLocalCssVariables(sf),
     variantDefs,
     imports,
   };
@@ -481,6 +484,20 @@ function renderedElement(fn: FunctionLike, sf: ts.SourceFile): string | undefine
   };
   findLocal(fn.body);
   return dynamic ?? found;
+}
+
+function collectLocalCssVariables(sf: ts.SourceFile): string[] {
+  const found = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAssignment(node) && ts.isStringLiteral(node.name) && node.name.text.startsWith("--")) found.add(node.name.text);
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "setProperty") {
+      const first = node.arguments[0];
+      if (first && ts.isStringLiteral(first) && first.text.startsWith("--")) found.add(first.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return [...found].sort();
 }
 
 export function collectClassStrings(sf: ts.SourceFile): { value: string; line: number }[] {

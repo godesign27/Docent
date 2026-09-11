@@ -171,7 +171,7 @@ docent list-clients
 | Extractor | Reads | Produces |
 |---|---|---|
 | `react-tsx` | React components (`.tsx`/`.jsx`) | Exported parts, props (types, required, defaults, JSDoc), cva/tailwind-variants variants, rendered element, dependencies, token references |
-| `css-variables` | CSS custom properties | Tokens per theme mode, mapped from selectors in config (`:root`, `.dark`, `@media …`, `@theme`). Tailwind v4 `@theme` variables also become utility bindings (`--color-brand` → `bg-brand`); `@theme inline` aliases wire a utility to a runtime variable |
+| `css-variables` | CSS custom properties | Tokens per theme mode, mapped from selectors in config (`:root`, `.dark`, `@media …`, `@theme`). Tailwind v4 `@theme` variables also become utility bindings (`--color-brand` → `bg-brand`); `@theme inline` aliases wire a utility to a runtime variable. How the CSS uses a variable (`hsl(var(--neutral-500))`, `background-color: var(--x)`) types it as a color when nothing stronger does |
 | `tailwind-theme` | `tailwind.config.*` theme | Utility bindings (`bg-primary` → `--primary`), types from theme sections, derived values |
 | `dtcg-json` | W3C design tokens / Style Dictionary JSON | Tokens with declared types, descriptions and aliases |
 
@@ -183,6 +183,7 @@ Governance knowledge is read the same way, through field mappings in config:
 |---|---|---|
 | `patterns` | Pattern files (JSON) | Required/recommended/optional components (resolved to contract ids), sequence, rules, forbidden list, example |
 | `governance.rules` | JSON rule files (objects or plain strings), or a bullet list under a markdown heading | Rules with id, severity, category and the response the client wants agents told; patterns' forbidden lists and components' forbidden usage become rules too |
+| `governance.agreedRules` | — (written in the config) | Rules the design-system owner agreed during onboarding that aren't written in the repo, each with a severity and who agreed it. They are enforced like written rules and marked `origin: agreed` in the contract |
 | `governance.checks` | — | Maps Docent's deterministic checks (restricted package, unindexed component, raw color, invalid prop value, compound structure, …) to the client's rule ids, so every finding cites the client's own rule |
 | `tokenSemantics` | Semantic token roles | Token meanings and role groups, the "need → use" decision table, forbidden token usage |
 | `escalation` | — | What each kind of finding leads to: reject, escalate or warn, and who reviews |
@@ -201,6 +202,7 @@ Every value in a contract is either read from the repo with a source location, o
 - `non-token-value` — styles using values that aren't tokens (`bg-black/80`, `text-[#ff00aa]`)
 - `unresolved-token-reference` — a token or Tailwind binding pointing at a variable that doesn't exist
 - `not-in-manifest` / `manifest-entry-without-source` — the inventory and the source disagree
+- `duplicate-component-name` — two components export the same name (e.g. two `Toaster`s); agents asking by name are asked to choose by id
 - `unknown-token-type`, `missing-default-mode`, `conflicting-token-definition`, `undocumented-token`, `props-not-resolved`, …
 
 The full list lives in `GapKind` in [`schema/contract.ts`](schema/contract.ts).

@@ -23,7 +23,7 @@ Read-only tools, all answered from a snapshot of your design system:
 
 ## What Docent guarantees
 
-- **No invented answers.** Components, props, variants, tokens and rules that aren't in your design system are reported as not existing. Agents are told not to build or approximate them.
+- **No invented answers.** Components, props, variants, tokens and rules that aren't in your design system are reported as not existing. Agents are told not to build or approximate them. When a name could mean more than one of your components, the agent is asked which one it means.
 - **Source wins.** Props, variants and exports come from your component source. Where your documentation or specs disagree, Docent follows the source and reports the disagreement.
 - **Every answer is checked before it's returned.** Each component, prop, value, token, pattern and rule in an answer is verified against the snapshot; delivered files are re-hashed. If anything doesn't match, the answer is withheld and the failure is logged.
 - **Your rules decide conflicts, with a human where you want one.** Requests and code that break your rules are rejected, sent to a named reviewer, or answered with a warning, according to the severity you give each rule. A request sent for review gets no answer from Docent: the agent is told to wait, and the reviewer's decision and note are what it receives. Asking for an exception always goes to a person unless you choose otherwise.
@@ -34,7 +34,7 @@ Read-only tools, all answered from a snapshot of your design system:
 
 - **It doesn't design or author.** It won't create components, tokens or patterns, or change your design system.
 - **It doesn't use AI to answer.** Questions are routed and answered by deterministic matching against your design system, which is why answers can be verified and repeated. The trade-off: it recognises what requests name and how they're worded, so a badly phrased question may get "which of these do you mean?" instead of an answer.
-- **It only enforces rules you've written down.** Docent can prove some violations itself: third-party UI libraries, imports outside approved paths, components outside your inventory, invalid prop values, parts outside their required parent, hard-coded colors, re-created components. Rules that need design judgment ("use a modal only for short tasks", "don't use AI styling on human-authored content") are shown to agents but not checked, and each governance answer lists what wasn't evaluated. A rule without a severity can only produce a warning.
+- **It only enforces rules you've written down**, either in your repository or agreed with you during onboarding and recorded in Docent's configuration with who agreed them. Docent can prove some violations itself: third-party UI libraries, imports outside approved paths, components outside your inventory, invalid prop values, parts outside their required parent, hard-coded colors, re-created components. Rules that need design judgment ("use a modal only for short tasks", "don't use AI styling on human-authored content") are shown to agents but not checked, and each governance answer lists what wasn't evaluated. A rule without a severity can only produce a warning.
 - **It can't make an agent listen.** Docent answers agents that ask. An agent can still ignore it or write code without asking. Pair Docent with your normal code review and CI.
 - **It's only as current as its last snapshot.** Changes to your design system reach agents after the next ingestion, which is typically part of your release process.
 - **Some things are out of reach of static reading**: props inherited from third-party primitives (e.g. Radix) are named but not listed one by one, and framework defaults such as Tailwind's built-in spacing scale aren't part of your design system's contract.
@@ -58,6 +58,6 @@ When a request conflicts with a rule that needs a person's decision, the agent r
 ## What we need from you
 
 - Read access to the design-system repository.
-- The rules that must block, and how strictly (critical: always reject; high: needs a person; lower: warn).
+- The rules that must block, and how strictly (critical: always reject; high: needs a person; lower: warn). If they aren't written down in the repository, we record the ones you state during onboarding.
 - The people who review escalations.
 - A handful of real questions your engineers or agents ask, so routing can be tested against how your team actually works.

@@ -81,6 +81,11 @@ ingestion:
   #       heading: Rules of the road
   #       category: rules
   #       severity: high                     # rule ids become rules-1, rules-2, ...
+  #   agreedRules:                           # rules the owner agreed that aren't written in the repo
+  #     - id: NO_THIRD_PARTY_UI
+  #       rule: Never add a third-party UI kit such as Material UI or Chakra.
+  #       severity: critical
+  #       agreedBy: Jane Doe (design-system owner), 2026-09-11
   #   approvedImports: ["@/components/", "@/lib/"]
   #   restrictedPackages: ["@mui/*", "antd", "@chakra-ui/*"]
   #   checks:

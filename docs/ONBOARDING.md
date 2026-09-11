@@ -15,7 +15,7 @@ The runbook for taking a client from repo access to a working Docent instance in
 | 8 | Deploy for the team (optional) | 1 h |
 | 9 | Hand off | 30 min |
 
-Most of the day is judgment in steps 4–6. The commands themselves run in seconds.
+Most of the day is judgment in steps 4–6. The commands themselves run in seconds. A timed dry run on an unseen repo is recorded in [`dry-runs/2026-09-11-agentic-bootstrap-core.md`](dry-runs/2026-09-11-agentic-bootstrap-core.md).
 
 ---
 
@@ -55,9 +55,11 @@ Resolve each TODO:
 |---|---|
 | Narrow `ingestion.components` | Keep only design-system components: primitives, layout and anything the client's docs call part of the system. Leave out product features (pages, dashboards, domain widgets). List individual files if needed. |
 | CSS variables under other selectors | A selector such as `.theme-blue` or `[data-brand="x"]` that holds token values is a mode: add it to `modes`. Leave out selectors that aren't themes. |
+| CSS not imported by the entry stylesheet | `init` keeps the CSS that the Tailwind entry (e.g. `src/index.css`) loads. A file left out is often a copy-and-paste kit or a feature override that redefines the same variables. Add it back only if the app loads it some other way, such as an import from a layout component. |
 | Token JSON not linked to CSS | If the client generates CSS from JSON, keep the CSS (it binds utilities). If they have no CSS tokens, switch to `dtcg-json`. |
 | No global CSS entry for foundation | Set `ingestion.foundation.files` to the stylesheet that defines tokens and the Tailwind/PostCSS config, or leave it out if consumers already have the design system's styles. |
 | Rules read with severity "medium" | Handled in step 5. |
+| No rules found in the repo | Handled in step 5 with `agreedRules`. |
 | Confirm governance.checks | Each check should point at the rule that forbids what it detects. Remove a mapping that points at the wrong rule; a check without a mapping only warns. |
 | No component docs | Point `docs.components` at the markdown that explains usage. |
 
@@ -92,10 +94,13 @@ Open `contracts/<client-id>/gaps.md`. Every gap is either a config problem (fix 
 | `governance-check-unmapped` | A check maps to a rule id that doesn't exist | Fix config |
 | `import-path-unknown` | No tsconfig paths and no inventory import paths | Set `importPath` on the react-tsx extractor |
 | `not-in-manifest`, `manifest-entry-without-source` | Components globs too wide/narrow, or the inventory is stale | Fix globs; otherwise hand off |
-| `unresolved-token-reference` | A token or utility points at a variable that isn't defined | Real bug for the client, unless a CSS file is missing from the tokens extractor |
+| `unresolved-token-reference` | A token or utility points at a variable that isn't defined (variables a component sets on itself, like `style={{ "--sidebar-width": … }}`, don't count) | Real bug for the client, unless a CSS file is missing from the tokens extractor |
 | `spec-drift` | The client's spec disagrees with source | Hand off (source wins meanwhile) |
 | `non-token-value` | Components use colors that aren't tokens | Hand off |
 | `missing-usage-docs`, `undocumented-token`, `placeholder-documentation` | Documentation gaps | Hand off; not blocking |
+| `duplicate-component-name` | Two components export the same name (shadcn's `toaster.tsx` and `sonner.tsx` both export `Toaster`) | Hand off; agents are asked to choose by id meanwhile |
+| `unknown-token-type` | A variable whose value (e.g. `220 9% 50%`) doesn't say what it is, with no Tailwind binding and no CSS using it | Hand off if the variables are meant for use; add the Tailwind binding or the missing CSS file otherwise |
+| `no-primary-export` | A file of related parts with no part named after the file (`chart.tsx`, `resizable.tsx`) | Nothing to do; agents ask for the parts by name |
 | `inherited-props-not-expanded`, `framework-defaults-not-captured` | Known limits of static reading | Nothing to do |
 
 Rerun `onboard` after config fixes. Collect the hand-off gaps into a short note for the client.
@@ -107,6 +112,28 @@ Rerun `onboard` after config fixes. Collect the hand-off gaps into a short note 
 With the client's design-system owner:
 
 1. **Severities.** For each rule that must block, set a severity. In a rules JSON file that is the rule's own severity field; for rules read from markdown, set `severity` on the rule source (all bullets under that heading share it), or split the heading.
+   **No written rules?** Many repos have none. Ask the owner which rules must block, and record them in config with who agreed them. Then map the checks that detect them:
+
+   ```yaml
+   ingestion:
+     governance:
+       agreedRules:
+         - id: NO_THIRD_PARTY_UI
+           rule: Build UI only from src/components/ui; never add a third-party UI kit such as Material UI or Chakra.
+           severity: critical
+           agreedBy: Jane Doe (design-system owner), 2026-09-11
+         - id: TOKEN_COLORS_ONLY
+           rule: Use token utilities for color; never hard-code hex, rgb or hsl values or use Tailwind palette colors.
+           severity: high
+           response: Use a theme token such as bg-primary, or ask for a new token.   # optional: what agents are told
+           agreedBy: Jane Doe (design-system owner), 2026-09-11
+       checks:
+         restricted-package: NO_THIRD_PARTY_UI
+         raw-color: TOKEN_COLORS_ONLY
+         palette-utility: TOKEN_COLORS_ONLY
+   ```
+
+   Agreed rules are enforced like written ones and marked `origin: agreed` in the contract. Encourage the client to move them into the repo, then switch to `rules`. The checks that can be mapped are `restricted-package`, `unapproved-import`, `unindexed-component`, `invalid-prop-value`, `compound-structure`, `bespoke-duplicate`, `raw-color`, `palette-utility`, `base-mutation` and `new-dependencies`.
 2. **Policy.** The defaults: proven critical → rejected, high → escalated to a human, medium/low → warning, a request that only resembles a rule → warning, a request for an exception → escalated. Change `escalation` in config only if the client wants something else.
 3. **Reviewers.** Set `escalation.reviewers` to the people who decide escalations.
 4. **Check it** with requests the client cares about:
@@ -131,10 +158,11 @@ npm run docent -- ask --client <client-id> --code path/to/Component.tsx "Is this
     domains: [components]          # exact set of specialists; [] for clarification
     status: answered               # answered | clarification-needed | not-found | rejected | escalated
     components: [button]           # ids that must be answered
-    # tokens, patterns, unresolved, rules (rule ids in findings), outcome, includesDomains
+    # tokens, patterns, unresolved, rules (rule ids in findings), includesDomains (at least these specialists)
+    # outcome: governance decision, one of no-conflict | warn | needs-review | disallowed
 ```
 
-Write the expectation you want, not the one you get. Quote any request containing `#` (YAML treats ` #` as a comment).
+Write the expectation you want, not the one you get. Quote any request containing `#` (YAML treats ` #` as a comment). Governance cases that should block will fail until step 5's severities are in place; that is the eval doing its job.
 
 ```bash
 npm run docent -- eval --client <client-id> --verbose
@@ -190,6 +218,12 @@ Anywhere else that runs a container works the same way: build the [`Dockerfile`]
 
 **Done when** `/healthz` shows the client's contract hash and a remote agent's request appears in the logs with transport `http`.
 
+To rehearse without a deployment, run the same server locally with a token and connect to `http://127.0.0.1:8080/mcp`:
+
+```bash
+DOCENT_TOKEN=$(openssl rand -hex 32) npm run docent -- serve --client <client-id> --http --port 8080
+```
+
 ## 9. Hand off
 
 - [ ] Share [`WHAT_DOCENT_DOES.md`](WHAT_DOCENT_DOES.md) with the client.
@@ -225,5 +259,8 @@ Then restart the local server, or `fly deploy` again. In CI, `npm run ingest -- 
 | Tokens have no utility bindings | Tailwind v3: add the `tailwind-theme` extractor. Tailwind v4: map `@theme` in `modes`. |
 | Every token has a `missing-default-mode` gap | `defaultMode` doesn't match the mode name used for `:root` / `@theme`. |
 | Eval case with `#` behaves oddly | Quote the `ask:` value. |
+| `Invalid eval batch` | The message names the case and field; `outcome` and `status` accept only the values listed in step 6. |
+| Agent gets "is exported by 2 components" | Two components share a name. Ask with `component` set to the id, or request the id in `get_component`. |
+| Every governance answer is a warning | No rule has a severity of high or critical, or checks aren't mapped to rules. See step 5, including `agreedRules`. |
 | `No contract for <client>` when serving | Run `ingest` or `onboard` first. |
 | `Refusing to serve on 0.0.0.0 without a token` | Set `DOCENT_TOKEN` (24+ characters) or bind to 127.0.0.1. |
