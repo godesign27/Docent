@@ -209,6 +209,12 @@ export async function loadGovernance(
   };
 }
 
+function ownLines(content: string): string[] {
+  const lines = content.split("\n").slice(1);
+  const end = lines.findIndex((l) => /^#{1,6}\s/.test(l));
+  return end === -1 ? lines : lines.slice(0, end);
+}
+
 /** Rules kept as a bullet list under a markdown heading. Each bullet becomes one rule. */
 function markdownRules(
   ctx: Context,
@@ -233,8 +239,8 @@ function markdownRules(
     });
   }
   return sections.flatMap((section) =>
-    section.content
-      .split("\n")
+    // Only the section's own bullets, not those under its sub-headings.
+    (heading ? ownLines(section.content) : section.content.split("\n"))
       .map((line) => line.match(/^\s{0,3}(?:[-*+]|\d+\.)\s+(.+)$/)?.[1])
       .filter((item): item is string => Boolean(item))
       .map((item) => {

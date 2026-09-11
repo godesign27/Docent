@@ -37,7 +37,7 @@ Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
 - **Phase 1 — one specialist, end to end: built.** An MCP server whose concierge routes to the Components & contracts specialist: `ask` for contracts, `get_component` / `get_foundation` to fetch source into a project without cloning the design system. Every result is validated against the contract and logged per client.
 - **Phase 2 — full specialist set and real routing: built.** Tokens & foundations, Patterns & usage and Governance & compliance specialists; evidence-based intent routing that can send one request to several specialists or ask a clarifying question; governance conflicts rejected or escalated to a human review queue by policy; ingestion of patterns, rules and semantic token roles. Measured with a labelled batch of real-world requests (`docent eval`).
 - **Phase 3 — multi-client config: built.** The same code serves a second, differently built design system (Tailwind v4 `@theme` tokens, no component inventory, rules in markdown, no patterns) through config alone, with per-client specialists and escalation policy, and `docent isolation` verifies that contracts, snapshots, logs and reviews never cross between clients.
-- Phase 4 (clone-and-go onboarding in under a day) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+- **Phase 4 — clone-and-go onboarding: built.** `docent init` inspects a repo and writes a commented config with the decisions only a person can make; `docent onboard` ingests, seeds and runs an eval, checks isolation and prints how to connect; `serve --http` deploys one client for a team behind a bearer token. The step-by-step runbook is [`docs/ONBOARDING.md`](docs/ONBOARDING.md), and [`docs/WHAT_DOCENT_DOES.md`](docs/WHAT_DOCENT_DOES.md) is the scoping document for clients.
 
 ## Getting started
 
@@ -57,13 +57,15 @@ That clones the client repo (shallow, read-only) into `.docent/sources/`, and wr
 
 ### Onboard a new client
 
-1. Copy [`config/clients/_template.yaml`](config/clients/_template.yaml) to `config/clients/<client-id>.yaml`
-2. Point `source` at the repo, and pick extractors that match how the client stores components and tokens
-3. `npm run docent -- check-config --client <client-id>`
-4. `npm run ingest -- --client <client-id>`
-5. Read `gaps.md`; adjust globs or modes for config problems, and hand the rest to the design-system team
-6. Write `config/clients/<client-id>.eval.yaml` with real requests and run `npm run docent -- eval --client <client-id>`
-7. `npm run docent -- isolation` to confirm the new client is separated from every other client on this machine
+Follow [`docs/ONBOARDING.md`](docs/ONBOARDING.md). The short version:
+
+```bash
+npm run docent -- init --repo https://github.com/acme/design-system.git --id acme
+# review config/clients/acme.yaml and its TODOs
+npm run docent -- onboard --client acme
+```
+
+`init` detects components, tokens (CSS variables, Tailwind v3/v4, token JSON), inventories, specs, patterns, rules and docs, and records its evidence and open decisions at the top of the config. `onboard` validates the config, ingests, writes a starter eval batch from the contract and runs it, checks isolation, and prints the agent connection snippets. Then triage `gaps.md`, set rule severities and reviewers, and replace the starter eval with real requests.
 
 Client configs are git-ignored except the template and the reference client (`agentic-ui-shadcn`, GO Design's own design system): a client's config, contracts, logs and reviews stay in the clone that serves that client.
 
@@ -81,6 +83,10 @@ Each client is its own config and its own MCP server process. Register one serve
 ```
 
 A server loads exactly one client's contract, snapshot and policy, and its request log and review queue refuse entries for any other client.
+
+### Deploy for a team
+
+`serve --http` serves MCP Streamable HTTP at `/mcp` with a health check at `/healthz`. A bearer token (`DOCENT_TOKEN`, 24+ characters) is required whenever the server listens beyond localhost. The [`Dockerfile`](Dockerfile) builds a per-client image and [`fly.toml.example`](fly.toml.example) deploys it to Fly.io; see [step 8 of the runbook](docs/ONBOARDING.md#8-deploy-for-the-team-optional).
 
 ### Connect a calling agent
 
@@ -144,8 +150,10 @@ Runs `config/clients/<client>.eval.yaml` — labelled real-world requests with t
 ### CLI
 
 ```
+docent init   --repo <git-url | path> [--id <id>] [--name <name>] [--ref <ref>] [--subdir <dir>] [--yes] [--force]
+docent onboard --client <id>
 docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on error|warning] [--quiet]
-docent serve  (--client <id> | --config <path>)
+docent serve  (--client <id> | --config <path>) [--http [--host 127.0.0.1] [--port 3333]]
 docent ask    (--client <id> | --config <path>) [--component <id>] "<question>"
 docent fetch  (--client <id> | --config <path>) [--json] (<component>... | --foundation)
 docent reviews (--client <id> | --config <path>) [--all]
@@ -205,10 +213,11 @@ The full list lives in `GapKind` in [`schema/contract.ts`](schema/contract.ts).
 /ingestion      — parses a client repo into normalized contracts
 /concierge      — router, concierge, validation gate, audit log, review queue, eval runner, MCP server
 /specialists    — components, tokens, patterns and governance specialists
+/onboarding     — repo detection for `docent init`, config and starter-eval rendering
 /cli            — the docent command
 /contracts      — generated per-client contracts (git-ignored)
 /logs           — per-client audit trail (git-ignored)
-/docs           — PRD.md, IMPLEMENTATION_PLAN.md
+/docs           — PRD, implementation plan, onboarding runbook, client scoping doc
 ```
 
 ## Design principles

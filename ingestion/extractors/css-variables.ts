@@ -120,7 +120,7 @@ function inThemeInline(parent: Container | undefined): boolean {
  * "@media (prefers-color-scheme: dark) :root", then ":root" for a bare rule,
  * and "@theme" for Tailwind v4 theme blocks.
  */
-function contextKeys(parent: Container | undefined): string[] {
+export function contextKeys(parent: Container | undefined): string[] {
   if (!parent) return [];
   const atRules: string[] = [];
   let selector: string | undefined;

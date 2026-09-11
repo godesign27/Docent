@@ -3,7 +3,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AskInput, CheckReviewInput, DocentResponse, FetchResponse, GetComponentInput, GetFoundationInput, ReviewResponse } from "../schema/response.js";
 import type { CallerInfo, Concierge } from "./concierge.js";
 
-export function createMcpServer(concierge: Concierge, options: { docentVersion: string; transport: CallerInfo["transport"] }): McpServer {
+export function createMcpServer(
+  concierge: Concierge,
+  options: { docentVersion: string; transport: CallerInfo["transport"]; /** e.g. from an HTTP header, when the MCP handshake isn't visible */ callerHint?: string },
+): McpServer {
   const system = concierge.clientName;
   const server = new McpServer(
     { name: "docent", version: options.docentVersion },
@@ -24,7 +27,7 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
   const callerFor = (caller: string | undefined): CallerInfo => {
     const client = server.server.getClientVersion();
     return {
-      name: caller ?? client?.name ?? "unknown",
+      name: caller ?? client?.name ?? options.callerHint ?? "unknown",
       client: client ? { name: client.name, version: client.version } : null,
       transport: options.transport,
     };
