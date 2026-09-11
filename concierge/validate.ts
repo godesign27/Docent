@@ -7,12 +7,13 @@ import type { EscalationPolicy } from "../config/schema.js";
 import type { ComponentContract, Contract, PackageRequirement } from "../schema/contract.js";
 import { DocentResponse, FetchResponse, type ComponentAnswer, type GetComponentInput, type ValidationResult } from "../schema/response.js";
 import { installClosure } from "../specialists/components/fetch.js";
+import { ClassIndex } from "../ingestion/tokens/tailwind-classes.js";
 import { ComponentIndex } from "../specialists/components/resolve.js";
 import { actionFor, outcomeFor } from "../specialists/governance/policy.js";
 
 type Check = ValidationResult["checks"][number];
 
-export function validateResponse(response: DocentResponse, contract: Contract, policy: EscalationPolicy): ValidationResult {
+export function validateResponse(response: DocentResponse, contract: Contract, policy: EscalationPolicy, request: { audit?: boolean } = {}): ValidationResult {
   const byId = new Map(contract.components.map((c) => [c.id, c]));
   const tokensById = new Map(contract.tokens.map((t) => [t.id, t]));
   const patternsById = new Map(contract.patterns.map((p) => [p.id, p]));
@@ -97,6 +98,12 @@ export function validateResponse(response: DocentResponse, contract: Contract, p
       const utilities = new Set(source.tailwind.flatMap((b) => b.exampleClasses));
       for (const u of t.utilities) if (!utilities.has(u)) fail(`token ${t.id} lists utility ${u}, which is not bound to it`);
     }
+    // Class verdicts are re-derived from the contract's own bindings.
+    const classIndex = new ClassIndex(contract.tokens, []);
+    for (const u of response.utilityClasses) {
+      const expected = classIndex.classify(u.class);
+      if (expected.kind !== u.kind || expected.token !== u.token) fail(`utility ${u.class} is reported as ${u.kind}${u.token ? ` (${u.token})` : ""}, the contract says ${expected.kind}${expected.token ? ` (${expected.token})` : ""}`);
+    }
     const decisions = contract.tokenGuidance?.decisions ?? [];
     for (const d of response.tokenDecisions) if (!decisions.some((x) => x.need === d.need && x.use === d.use)) fail(`token decision "${d.need}" was not authored`);
     if (response.tokenForbidden.length && !same(response.tokenForbidden, contract.tokenGuidance?.forbidden ?? [])) fail("tokenForbidden differs from the authored list");
@@ -159,7 +166,9 @@ export function validateResponse(response: DocentResponse, contract: Contract, p
     if (blocked && (response.components.length || response.tokens.length || response.patterns.length || response.usage.length || response.inventory)) {
       fail(`a ${response.status} response must not carry answers`);
     }
-    if (response.status === "escalated") {
+    if (response.status === "escalated" && request.audit) {
+      if (response.review) fail("an audit must not open a review");
+    } else if (response.status === "escalated") {
       if (!response.review || response.review.status !== "pending") fail("an escalated response must carry a pending review");
       else if (!same(response.review.reviewers, policy.reviewers)) fail("review reviewers differ from the policy");
     } else if (response.review) {

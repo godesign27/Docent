@@ -178,6 +178,7 @@ export class Concierge {
       alternatives: [],
       inventory: null,
       tokens: [],
+      utilityClasses: [],
       tokenDecisions: [],
       tokenForbidden: [],
       patterns: [],
@@ -208,7 +209,7 @@ export class Concierge {
         flags.push("specialist-error");
         draft = { ...base, status: "error", message: `Specialist failed: ${(err as Error).message}`, validation: PENDING };
       }
-      const validation = validateResponse(draft, this.contract, this.policy);
+      const validation = validateResponse(draft, this.contract, this.policy, { audit: input.data.audit ?? false });
       response = validation.passed
         ? { ...draft, validation }
         : { ...base, routing: draft.routing, specialists: draft.specialists, status: "error", message: WITHHELD, validation };
@@ -290,6 +291,7 @@ export class Concierge {
       merged.unresolved = uniqueBy([...merged.unresolved, ...(s.unresolved ?? [])], (u) => u);
       merged.alternatives = uniqueBy([...merged.alternatives, ...(s.alternatives ?? [])], (a) => a.id);
       merged.tokens = uniqueBy([...merged.tokens, ...(s.tokens ?? [])], (t) => t.id);
+      merged.utilityClasses = uniqueBy([...merged.utilityClasses, ...(s.utilityClasses ?? [])], (u) => u.class);
       merged.tokenDecisions = uniqueBy([...merged.tokenDecisions, ...(s.tokenDecisions ?? [])], (d) => d.need);
       merged.tokenForbidden = s.tokenForbidden?.length ? s.tokenForbidden : merged.tokenForbidden;
       merged.patterns = uniqueBy([...merged.patterns, ...(s.patterns ?? [])], (p) => p.id);
@@ -309,10 +311,12 @@ export class Concierge {
 
     if (outcome === "disallowed" || outcome === "needs-review") {
       // Governance conflicts stop the answer: nothing that would help implement it goes back.
-      Object.assign(merged, { components: [], tokens: [], tokenDecisions: [], tokenForbidden: [], patterns: [], usage: [], inventory: null, clarification: null });
+      Object.assign(merged, { components: [], tokens: [], utilityClasses: [], tokenDecisions: [], tokenForbidden: [], patterns: [], usage: [], inventory: null, clarification: null });
       merged.status = outcome === "disallowed" ? "rejected" : "escalated";
       merged.message = governance!.message;
-      if (outcome === "needs-review") {
+      if (outcome === "needs-review" && input.audit) {
+        merged.message += " Audit only: no review was opened.";
+      } else if (outcome === "needs-review") {
         const id = `rev_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
         merged.review = {
           id,

@@ -99,12 +99,13 @@ export function createTokensSpecialist(contract: Contract): Specialist {
 
       if (tokens.length === 0 && decisions.length === 0) {
         return {
-          status: unresolved.length || notes.length ? "not-found" : "clarification-needed",
+          status: unresolved.length || notes.length || mentions.classes.length ? "not-found" : "clarification-needed",
           message: (notes.join(" ") || `No token in the ${system} design system matches the question.`) + missing,
           unresolved,
           notes,
+          utilityClasses: mentions.classes,
           clarification:
-            unresolved.length || notes.length
+            unresolved.length || notes.length || mentions.classes.length
               ? null
               : {
                   question: "Name the token (e.g. --primary or bg-muted) or describe the styling need (e.g. helper text, a dangerous action).",
@@ -120,6 +121,7 @@ export function createTokensSpecialist(contract: Contract): Specialist {
           "Apply tokens through the listed utilities; never use raw color values or Tailwind palette classes." +
           missing,
         tokens,
+        utilityClasses: mentions.classes,
         tokenDecisions: decisions,
         tokenForbidden: contract.tokenGuidance?.forbidden ?? [],
         unresolved,

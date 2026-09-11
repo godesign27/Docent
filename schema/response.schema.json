@@ -696,6 +696,40 @@
         "additionalProperties": false
       }
     },
+    "utilityClasses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "token",
+              "palette",
+              "arbitrary-color",
+              "unknown-variable",
+              "unbound"
+            ]
+          }
+        },
+        "required": [
+          "class",
+          "token",
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Each utility class the request named: token = applies that design token; palette / arbitrary-color = a raw color, not a token; unknown-variable = references an undefined variable; unbound = not a design-system token (e.g. a framework spacing class)"
+    },
     "tokenDecisions": {
       "type": "array",
       "items": {
@@ -1295,6 +1329,7 @@
     "alternatives",
     "inventory",
     "tokens",
+    "utilityClasses",
     "tokenDecisions",
     "tokenForbidden",
     "patterns",

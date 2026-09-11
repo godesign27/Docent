@@ -24,6 +24,10 @@ export const AskInput = z.object({
     .max(100_000)
     .optional()
     .describe("Proposed code (JSX/TSX) to check against the design system's governance rules before shipping it."),
+  audit: z
+    .boolean()
+    .optional()
+    .describe("Report what the rules decide without asking for a decision: an escalated outcome opens no review. For documentation and audit tools, not for code about to ship."),
   caller: z.string().max(200).optional().describe("Who is asking, for the audit trail, e.g. cursor or checkout-agent."),
 });
 export type AskInput = z.infer<typeof AskInput>;
@@ -249,6 +253,17 @@ export const DocentResponse = z.object({
   alternatives: z.array(ComponentRef),
   inventory: z.array(ComponentRef.extend({ category: z.string().nullable(), allowed: z.boolean().nullable() })).nullable(),
   tokens: z.array(TokenAnswer),
+  utilityClasses: z
+    .array(
+      z.object({
+        class: z.string(),
+        token: z.string().nullable(),
+        kind: z.enum(["token", "palette", "arbitrary-color", "unknown-variable", "unbound"]),
+      }),
+    )
+    .describe(
+      "Each utility class the request named: token = applies that design token; palette / arbitrary-color = a raw color, not a token; unknown-variable = references an undefined variable; unbound = not a design-system token (e.g. a framework spacing class)",
+    ),
   tokenDecisions: z.array(z.object({ need: z.string(), use: z.string() })),
   tokenForbidden: z.array(z.string()),
   patterns: z.array(PatternAnswer),

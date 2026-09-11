@@ -256,6 +256,33 @@ describe("serving it", () => {
     expect(exact.components.map((c) => c.id)).toEqual(["sonner"]);
   });
 
+  it("classifies each utility class a request names", async () => {
+    const r = await concierge().ask({ question: "Which tokens do these apply: hover:bg-primary/90 bg-[--brand-midnight] bg-slate-100 text-[#fff] gap-3 border-[--nope]", domain: "tokens" }, caller);
+    expect(r.validation.passed).toBe(true);
+    expect(r.utilityClasses.map((u) => [u.class, u.kind, u.token])).toEqual([
+      ["hover:bg-primary/90", "token", "primary"],
+      ["bg-[--brand-midnight]", "token", "brand-midnight"],
+      ["bg-slate-100", "palette", null],
+      ["text-[#fff]", "arbitrary-color", null],
+      ["gap-3", "unbound", null],
+      ["border-[--nope]", "unknown-variable", null],
+    ]);
+  });
+
+  it("audits code without opening a review", async () => {
+    const reviews = new MemoryReviewStore();
+    const c = new Concierge({ contract: built.contract, sources: built.sources, audit: { record() {} }, policy: config.escalation, domains: config.specialists, reviews, docentVersion: "test" });
+    const code = 'import { Button } from "@/components/ui/button"\nexport const X = () => <Button style={{ color: "#1D2955" }}>Go</Button>\n';
+    const audited = await c.ask({ question: "Does this follow the design system?", code, audit: true }, caller);
+    expect(audited.status).toBe("escalated");
+    expect(audited.review).toBeNull();
+    expect(audited.validation.passed).toBe(true);
+    expect(await reviews.list()).toEqual([]);
+    const shipped = await c.ask({ question: "Is this OK to ship?", code }, caller);
+    expect(shipped.review?.status).toBe("pending");
+    expect(await reviews.list()).toHaveLength(1);
+  });
+
   it("enforces agreed rules like written ones", async () => {
     const mui = await concierge().ask({ question: "Can I use Material UI for the table?" }, caller);
     expect(mui.status).toBe("rejected");

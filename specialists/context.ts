@@ -4,7 +4,7 @@
  * matched exactly against the contract, and everything else is a pattern with
  * visible evidence that ends up in the routing record.
  */
-import { ARBITRARY_COLOR, ClassIndex, PALETTE } from "../ingestion/tokens/tailwind-classes.js";
+import { ARBITRARY_COLOR, ClassIndex, PALETTE, type ClassVerdict } from "../ingestion/tokens/tailwind-classes.js";
 import type { ComponentContract, Contract, GovernanceRule, PatternContract, TokenContract } from "../schema/contract.js";
 import type { AskInput } from "../schema/response.js";
 import { type AmbiguousName, ComponentIndex, findMentions, INVENTORY_QUESTION, normalizeKey, terms } from "./components/resolve.js";
@@ -38,6 +38,8 @@ export interface Mentions {
   components: { strong: ComponentContract[]; weak: ComponentContract[]; unresolved: string[]; ambiguous: AmbiguousName[] };
   tokens: TokenContract[];
   unknownTokens: string[];
+  /** Utility classes named in the request, classified against the token bindings. */
+  classes: ClassVerdict[];
   patterns: PatternContract[];
   entities: {
     restrictedPackages: string[];
@@ -194,6 +196,7 @@ export function extractMentions(index: ContractIndex, input: AskInput): Mentions
     rules,
     tokens: [...tokens],
     unknownTokens,
+    classes: [...new Set(utilityLike(q))].map((c) => index.classes.classify(c)),
     patterns: [...patterns],
     entities: {
       restrictedPackages,
@@ -214,6 +217,14 @@ export function extractMentions(index: ContractIndex, input: AskInput): Mentions
       proposal: q.match(PROPOSAL)?.[0] ?? null,
     },
   };
+}
+
+/** Whitespace-separated words shaped like utility classes: `hover:bg-primary/90`, `bg-[--brand]`, `gap-3`. */
+function utilityLike(q: string): string[] {
+  return q
+    .split(/[\s,;"'`()]+/)
+    .map((w) => w.replace(/[.?!:]+$/, ""))
+    .filter((w) => w.includes("-") && /^(?:[^\s:]+:)*!?-?[a-z][a-z0-9]*(?:-[a-z0-9.]+)*(?:-\[[^\]\s]+\])?(?:\/[\w.]+)?$/.test(w) && !w.startsWith("--"));
 }
 
 /** Rules whose wording overlaps the request, strongest first. */

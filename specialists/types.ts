@@ -13,6 +13,7 @@ export type Section = { status: SectionStatus; message: string } & Partial<
     | "alternatives"
     | "inventory"
     | "tokens"
+    | "utilityClasses"
     | "tokenDecisions"
     | "tokenForbidden"
     | "patterns"

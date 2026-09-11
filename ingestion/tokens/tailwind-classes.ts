@@ -66,6 +66,14 @@ export const PALETTE = new RegExp(
 );
 export const ARBITRARY_COLOR = new RegExp(`^(${COLOR_PREFIXES.join("|")})-\\[(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch|oklab)\\((?!.*var\\().*\\))\\]$`);
 
+/** What one utility class is, as far as the design system is concerned. */
+export interface ClassVerdict {
+  class: string;
+  /** The token the class applies, when it applies one. */
+  token: string | null;
+  kind: "token" | "palette" | "arbitrary-color" | "unknown-variable" | "unbound";
+}
+
 export interface ClassAnalysis {
   tokenRefs: Set<string>;
   nonTokenValues: Map<string, number>;
@@ -89,6 +97,22 @@ export class ClassIndex {
 
   get hasTailwindBindings(): boolean {
     return this.byClass.size > 0;
+  }
+
+  /** `hover:bg-primary/90` → token primary; `bg-slate-100` → palette; `gap-3` → unbound (not a design-system token). */
+  classify(cls: string): ClassVerdict {
+    const utility = lastSegment(cls).replace(/^!/, "").replace(/^-/, "");
+    const stem = utility.includes("[") ? utility : utility.replace(/\/[\w.]+$/, "");
+    const bound = this.byClass.get(stem);
+    if (bound) return { class: cls, token: bound, kind: "token" };
+    const variables = (utility.match(/--[\w-]+/g) ?? []).filter((v) => !this.ignoredVariablePrefixes.some((p) => v.startsWith(p)));
+    if (variables.length) {
+      const id = variables.map((v) => this.byVariable.get(v)).find(Boolean);
+      return id ? { class: cls, token: id, kind: "token" } : { class: cls, token: null, kind: "unknown-variable" };
+    }
+    if (PALETTE.test(stem)) return { class: cls, token: null, kind: "palette" };
+    if (ARBITRARY_COLOR.test(stem)) return { class: cls, token: null, kind: "arbitrary-color" };
+    return { class: cls, token: null, kind: "unbound" };
   }
 
   analyze(classStrings: { value: string; line: number }[]): ClassAnalysis {

@@ -28,6 +28,10 @@
       "type": "string",
       "maxLength": 100000
     },
+    "audit": {
+      "description": "Report what the rules decide without asking for a decision: an escalated outcome opens no review. For documentation and audit tools, not for code about to ship.",
+      "type": "boolean"
+    },
     "caller": {
       "description": "Who is asking, for the audit trail, e.g. cursor or checkout-agent.",
       "type": "string",
