@@ -117,6 +117,17 @@ export const ClientConfig = z.object({
     tokens: z.array(z.discriminatedUnion("extractor", [CssVariablesExtractor, TailwindThemeExtractor, DtcgJsonExtractor])).default([]),
     manifest: ManifestConfig.optional(),
     specs: SpecsConfig.optional(),
+    /** What a consuming project needs besides component files. */
+    foundation: z
+      .object({
+        /** Theme tokens and build config every component relies on, e.g. src/index.css, tailwind.config.js. */
+        files: Globs,
+        /** Packages the host project needs that no file imports directly, e.g. tailwindcss, postcss. */
+        packages: z.array(z.string()).default([]),
+      })
+      .optional(),
+    /** Package manifest used to look up dependency versions. */
+    packageJson: z.string().default("package.json"),
     docs: z
       .object({
         /** Markdown files searched for per-component usage documentation. */

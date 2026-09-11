@@ -34,7 +34,7 @@ Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
 ## Status
 
 - **Phase 0 — single-client ingestion: built.** Docent reads a design-system repo into a structured, inspectable contract and flags gaps instead of guessing.
-- **Phase 1 — one specialist, end to end: built.** An MCP server with one `ask` tool, a concierge that routes to the Components & contracts specialist, validation of every answer against the contract, and a per-client request audit log.
+- **Phase 1 — one specialist, end to end: built.** An MCP server whose concierge routes to the Components & contracts specialist: `ask` for contracts, `get_component` / `get_foundation` to fetch source into a project without cloning the design system. Every result is validated against the contract and logged per client.
 - Phase 2 (remaining specialists, real routing, escalation) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
 ## Getting started
@@ -47,6 +47,8 @@ npm run ingest -- --client agentic-ui-shadcn
 ```
 
 That clones the client repo (shallow, read-only) into `.docent/sources/`, and writes:
+
+- `contracts/<client>/sources.json` — hashed snapshot of every file Docent may deliver to agents (components, their support files, the foundation)
 
 - `contracts/<client>/contract.json` — the normalized contract (schema: [`schema/contract.ts`](schema/contract.ts), JSON Schema: [`schema/contract.schema.json`](schema/contract.schema.json))
 - `contracts/<client>/gaps.md` — a readable report of everything Docent could not establish, grouped by severity, plus what changed since the last run
@@ -62,7 +64,20 @@ That clones the client repo (shallow, read-only) into `.docent/sources/`, and wr
 
 ### Connect a calling agent
 
-After ingesting, register Docent as an MCP server. It serves one client over stdio.
+After ingesting, register Docent as an MCP server in the project where the agent builds UI. That project does **not** need a copy of the design-system repo: the agent fetches the setup and the components it uses through Docent.
+
+**Cursor** — `.cursor/mcp.json` in that project (use the absolute path to `node`; apps launched from the Dock don't get your shell's PATH):
+
+```json
+{
+  "mcpServers": {
+    "docent": {
+      "command": "/opt/homebrew/bin/node",
+      "args": ["/absolute/path/to/Docent/bin/docent.js", "serve", "--client", "agentic-ui-shadcn"]
+    }
+  }
+}
+```
 
 **Claude Code**
 
@@ -70,31 +85,22 @@ After ingesting, register Docent as an MCP server. It serves one client over std
 claude mcp add docent -- node /absolute/path/to/Docent/bin/docent.js serve --client agentic-ui-shadcn
 ```
 
-**Cursor** — `.cursor/mcp.json` in the project that builds UI:
+The agent gets three read-only tools:
 
-```json
-{
-  "mcpServers": {
-    "docent": {
-      "command": "node",
-      "args": ["/absolute/path/to/Docent/bin/docent.js", "serve", "--client", "agentic-ui-shadcn"]
-    }
-  }
-}
-```
+| Tool | Use |
+|---|---|
+| `get_foundation` | Once per project: theme token CSS, Tailwind and PostCSS config, required packages and the `@/` import alias. |
+| `ask` | Before using a component: import path, parts, props, variants, required nesting, forbidden usage, agent rules, accessibility, AI experience metadata, known gaps. |
+| `get_component` | Fetch source for components, e.g. `{ "components": ["Sidebar", "AIAction"] }`. Returns every file to write — including dependencies (Sidebar brings Button, Sheet, Tooltip, `use-mobile`, `lib/utils`) in install order — the npm packages with versions, and instructions. Pass `installed` to skip what the project already has. |
 
-The agent gets one read-only tool, `ask`:
-
-```json
-{ "question": "What props does AIButton take?", "component": "ai:ai-button", "caller": "checkout-agent" }
-```
-
-Only `question` is required. The response carries a `status` (`answered`, `clarification-needed`, `not-found`, `error`), the validated component contracts, anything the question named that doesn't exist (`unresolved`), the validation checks that ran, and provenance (contract hash, source commit). Every exchange is appended to `logs/<client>/requests.jsonl`. Details: [`concierge/README.md`](concierge/README.md).
+Delivered files are byte-identical to the design system at the ingested commit: ingestion snapshots every deliverable file into `contracts/<client>/sources.json`, the server refuses to start if the snapshot doesn't match the contract's hashes, and every delivery is re-hashed and scope-checked before it is returned. Components that don't exist, or aren't in the client's inventory, are refused. Every call is appended to `logs/<client>/requests.jsonl`. Details: [`concierge/README.md`](concierge/README.md).
 
 Try it without an agent:
 
 ```bash
 npm run docent -- ask --client agentic-ui-shadcn "Should I use Dialog or Sheet?"
+npm run docent -- fetch --client agentic-ui-shadcn Sidebar AIAction
+npm run docent -- fetch --client agentic-ui-shadcn --foundation
 ```
 
 ### CLI
@@ -103,6 +109,7 @@ npm run docent -- ask --client agentic-ui-shadcn "Should I use Dialog or Sheet?"
 docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on error|warning] [--quiet]
 docent serve  (--client <id> | --config <path>)
 docent ask    (--client <id> | --config <path>) [--component <id>] "<question>"
+docent fetch  (--client <id> | --config <path>) [--json] (<component>... | --foundation)
 docent check-config (--client <id> | --config <path>)
 docent list-clients
 ```

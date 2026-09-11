@@ -4,7 +4,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "0.2.0"
+      "const": "0.3.0"
     },
     "docentVersion": {
       "type": "string"
@@ -558,6 +558,60 @@
                 "type": "null"
               }
             ]
+          },
+          "install": {
+            "type": "object",
+            "properties": {
+              "supportFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Non-component files this component needs, transitively (e.g. src/lib/utils.ts)"
+              },
+              "componentDependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Ids of other components this one imports directly"
+              },
+              "packages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "description": "Range from the design system's package.json; null when it is not declared there",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dev": {
+                      "type": "boolean",
+                      "description": "Declared under devDependencies"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "version",
+                    "dev"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "npm packages imported by this component and its support files"
+              }
+            },
+            "required": [
+              "supportFiles",
+              "componentDependencies",
+              "packages"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -574,7 +628,8 @@
           "description",
           "docs",
           "manifest",
-          "guidance"
+          "guidance",
+          "install"
         ],
         "additionalProperties": false
       }
@@ -770,6 +825,112 @@
         "additionalProperties": false
       }
     },
+    "sourceFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "component",
+              "support",
+              "foundation"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "bytes",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every file Docent may hand to a calling agent, with its hash at the ingested commit"
+    },
+    "foundation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Theme tokens, Tailwind/PostCSS config and other project-level files every component relies on"
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "description": "Range from the design system's package.json; null when it is not declared there",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dev": {
+                    "type": "boolean",
+                    "description": "Declared under devDependencies"
+                  }
+                },
+                "required": [
+                  "name",
+                  "version",
+                  "dev"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "pathAliases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "alias": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "alias",
+                  "target"
+                ],
+                "additionalProperties": false
+              },
+              "description": "Import aliases the component source assumes, e.g. @/ -> src/"
+            }
+          },
+          "required": [
+            "files",
+            "packages",
+            "pathAliases"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "patterns": {
       "type": "array",
       "items": {},
@@ -818,6 +979,9 @@
               "spec-missing",
               "spec-drift",
               "spec-without-source",
+              "unresolved-import",
+              "dependency-not-declared",
+              "foundation-not-configured",
               "unknown-token-type",
               "unresolved-token-reference",
               "missing-default-mode",
@@ -939,6 +1103,8 @@
     "modes",
     "components",
     "tokens",
+    "sourceFiles",
+    "foundation",
     "patterns",
     "governance",
     "gaps",

@@ -42,3 +42,6 @@ ingestion:
     components: ["docs/**/*.md"]
     tokens: ["docs/tokens.md"]
   placeholders: [TBD, TODO]
+  foundation:
+    files: ["src/styles/tokens.css", "tailwind.config.ts"]
+    packages: [tailwindcss]

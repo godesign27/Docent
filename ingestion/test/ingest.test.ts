@@ -10,6 +10,7 @@ import { resolveSource } from "../source.js";
 const fixtureConfig = fileURLToPath(new URL("./fixtures/acme.yaml", import.meta.url));
 
 let contract: Contract;
+let sources: Record<string, string>;
 const component = (id: string): ComponentContract => {
   const found = contract.components.find((c) => c.id === id);
   if (!found) throw new Error(`component ${id} not in contract`);
@@ -25,14 +26,14 @@ const gapsFor = (id: string, kind?: Gap["kind"]) =>
 
 beforeAll(async () => {
   const { config } = loadConfig(fixtureConfig);
-  contract = await buildContract(config, resolveSource(config));
+  ({ contract, sources } = await buildContract(config, resolveSource(config)));
 });
 
 describe("contract", () => {
   it("validates against the schema and is deterministic", async () => {
     expect(() => Contract.parse(contract)).not.toThrow();
     const { config } = loadConfig(fixtureConfig);
-    const again = await buildContract(config, resolveSource(config));
+    const { contract: again } = await buildContract(config, resolveSource(config));
     expect(again.contentHash).toBe(contract.contentHash);
     expect(diffContracts(contract, again).unchanged).toBe(true);
   });
@@ -144,6 +145,50 @@ describe("specs", () => {
   it("flags components without specs and specs without components", () => {
     expect(gapsFor("stepper", "spec-missing")).toHaveLength(1);
     expect(gapsFor("acme:tooltip", "spec-without-source")).toHaveLength(1);
+  });
+});
+
+describe("distribution", () => {
+  it("resolves support files, component dependencies and package versions", () => {
+    expect(component("button").install).toEqual({
+      supportFiles: ["src/lib/utils.ts"],
+      componentDependencies: [],
+      packages: [
+        { name: "@radix-ui/react-slot", version: "^1.2.0", dev: false },
+        { name: "class-variance-authority", version: "^0.7.1", dev: false },
+        { name: "clsx", version: "^2.0.0", dev: false },
+        { name: "tailwind-merge", version: null, dev: false },
+      ],
+    });
+    expect(component("icon-button").install.componentDependencies).toEqual(["button"]);
+    expect(component("icon-button").install.packages.map((p) => p.name)).toEqual(["class-variance-authority"]);
+  });
+
+  it("flags imports that cannot be delivered and packages without versions", () => {
+    expect(gapsFor("stepper", "unresolved-import")[0]?.message).toContain("@/hooks/use-stepper");
+    expect(gapsFor("button", "dependency-not-declared")[0]?.message).toContain("tailwind-merge");
+  });
+
+  it("records the foundation and hashes every deliverable file", async () => {
+    expect(contract.foundation).toEqual({
+      files: ["src/styles/tokens.css", "tailwind.config.ts"],
+      packages: [{ name: "tailwindcss", version: "^3.4.0", dev: true }],
+      pathAliases: [{ alias: "@/", target: "src/" }],
+    });
+    expect(contract.sourceFiles.map((f) => [f.path, f.role])).toEqual([
+      ["src/components/button.tsx", "component"],
+      ["src/components/dialog.tsx", "component"],
+      ["src/components/icon-button.tsx", "component"],
+      ["src/components/stepper.tsx", "component"],
+      ["src/lib/utils.ts", "support"],
+      ["src/styles/tokens.css", "foundation"],
+      ["tailwind.config.ts", "foundation"],
+    ]);
+    const { createHash } = await import("node:crypto");
+    for (const file of contract.sourceFiles) {
+      expect(createHash("sha256").update(sources[file.path]!).digest("hex")).toBe(file.sha256);
+    }
+    expect(Object.keys(sources).some((p) => p.endsWith("package.json") || p.startsWith("docs/"))).toBe(false);
   });
 });
 

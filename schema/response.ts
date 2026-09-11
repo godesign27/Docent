@@ -86,6 +86,67 @@ export type ValidationResult = z.infer<typeof ValidationResult>;
 export const ResponseStatus = z.enum(["answered", "clarification-needed", "not-found", "error"]);
 export type ResponseStatus = z.infer<typeof ResponseStatus>;
 
+// ---------------------------------------------------------------------------
+// Fetching source: get_component / get_foundation
+// ---------------------------------------------------------------------------
+
+export const GetComponentInput = z.object({
+  components: z
+    .array(z.string().min(1).max(200))
+    .min(1)
+    .max(20)
+    .describe("Component ids or export names to fetch, e.g. [\"ui:card\", \"AIAction\"]. Their dependencies are included automatically."),
+  installed: z
+    .array(z.string().max(300))
+    .max(300)
+    .optional()
+    .describe("Components (ids or names) or file paths this project already has from an earlier fetch; they are not sent again."),
+  caller: z.string().max(200).optional().describe("Who is asking, for the audit trail."),
+});
+export type GetComponentInput = z.infer<typeof GetComponentInput>;
+
+export const GetFoundationInput = z.object({
+  caller: z.string().max(200).optional().describe("Who is asking, for the audit trail."),
+});
+export type GetFoundationInput = z.infer<typeof GetFoundationInput>;
+
+export const DeliveredFile = z.object({
+  path: z.string().describe("Where to write the file, relative to the project root"),
+  content: z.string(),
+  sha256: z.string(),
+  role: z.enum(["component", "support", "foundation"]),
+  component: z.string().nullable().describe("Component id the file belongs to; null for shared support and foundation files"),
+});
+export type DeliveredFile = z.infer<typeof DeliveredFile>;
+
+const Package = z.object({ name: z.string(), version: z.string().nullable(), dev: z.boolean() });
+
+export const FetchResponse = z.object({
+  requestId: z.string(),
+  tool: z.enum(["get_component", "get_foundation"]),
+  status: z.enum(["delivered", "not-found", "rejected", "error"]),
+  message: z.string(),
+  components: z
+    .array(z.object({ id: z.string(), inventoryId: z.string().nullable(), name: z.string(), importPath: z.string().nullable(), reason: z.string() }))
+    .describe("Delivered components in install order: dependencies before the components that use them"),
+  files: z.array(DeliveredFile),
+  packages: z.array(Package),
+  pathAliases: z.array(z.object({ alias: z.string(), target: z.string() })),
+  instructions: z.array(z.string()),
+  unresolved: z.array(z.string()).describe("Requested names that do not exist in this design system"),
+  rejected: z.array(z.object({ id: z.string(), name: z.string(), reason: z.string() })).describe("Components that exist in source but may not be used"),
+  alternatives: z.array(ComponentRef),
+  validation: ValidationResult,
+  provenance: z.object({
+    client: z.object({ id: z.string(), name: z.string() }),
+    contractHash: z.string(),
+    contractGeneratedAt: z.string(),
+    sourceCommit: z.string().nullable(),
+    docentVersion: z.string(),
+  }),
+});
+export type FetchResponse = z.infer<typeof FetchResponse>;
+
 export const DocentResponse = z.object({
   requestId: z.string(),
   status: ResponseStatus,

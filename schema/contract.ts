@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 
-export const CONTRACT_SCHEMA_VERSION = "0.2.0";
+export const CONTRACT_SCHEMA_VERSION = "0.3.0";
 
 export const SourceLocation = z.object({
   file: z.string().describe("Path relative to the design-system root"),
@@ -48,6 +48,10 @@ export const GapKind = z.enum([
   "spec-missing",
   "spec-drift",
   "spec-without-source",
+  // distribution
+  "unresolved-import",
+  "dependency-not-declared",
+  "foundation-not-configured",
   // tokens
   "unknown-token-type",
   "unresolved-token-reference",
@@ -138,6 +142,39 @@ export const ComponentGuidance = z.object({
 });
 export type ComponentGuidance = z.infer<typeof ComponentGuidance>;
 
+// ---------------------------------------------------------------------------
+// Distribution: what a consuming project needs to install a component
+// ---------------------------------------------------------------------------
+
+export const PackageRequirement = z.object({
+  name: z.string(),
+  version: z.string().nullable().describe("Range from the design system's package.json; null when it is not declared there"),
+  dev: z.boolean().describe("Declared under devDependencies"),
+});
+export type PackageRequirement = z.infer<typeof PackageRequirement>;
+
+export const SourceFile = z.object({
+  path: z.string(),
+  sha256: z.string(),
+  bytes: z.number(),
+  role: z.enum(["component", "support", "foundation"]),
+});
+export type SourceFile = z.infer<typeof SourceFile>;
+
+export const ComponentInstall = z.object({
+  supportFiles: z.array(z.string()).describe("Non-component files this component needs, transitively (e.g. src/lib/utils.ts)"),
+  componentDependencies: z.array(z.string()).describe("Ids of other components this one imports directly"),
+  packages: z.array(PackageRequirement).describe("npm packages imported by this component and its support files"),
+});
+export type ComponentInstall = z.infer<typeof ComponentInstall>;
+
+export const Foundation = z.object({
+  files: z.array(z.string()).describe("Theme tokens, Tailwind/PostCSS config and other project-level files every component relies on"),
+  packages: z.array(PackageRequirement),
+  pathAliases: z.array(z.object({ alias: z.string(), target: z.string() })).describe("Import aliases the component source assumes, e.g. @/ -> src/"),
+});
+export type Foundation = z.infer<typeof Foundation>;
+
 export const ComponentContract = z.object({
   id: z.string().describe("Stable slug derived from the source file name"),
   name: z.string(),
@@ -162,6 +199,7 @@ export const ComponentContract = z.object({
     .nullable()
     .describe("What the client's own component inventory says about this component, placeholders removed"),
   guidance: ComponentGuidance.nullable(),
+  install: ComponentInstall,
 });
 export type ComponentContract = z.infer<typeof ComponentContract>;
 
@@ -248,6 +286,8 @@ export const Contract = z.object({
   modes: z.array(z.string()),
   components: z.array(ComponentContract),
   tokens: z.array(TokenContract),
+  sourceFiles: z.array(SourceFile).describe("Every file Docent may hand to a calling agent, with its hash at the ingested commit"),
+  foundation: Foundation.nullable(),
   patterns: z.array(z.unknown()).describe("Reserved: populated from Phase 2"),
   governance: z.array(z.unknown()).describe("Reserved: populated from Phase 2"),
   gaps: z.array(Gap),

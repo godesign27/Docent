@@ -70,3 +70,8 @@ ingestion:
     - Follow shadcn/ui accessibility patterns.
     - TBD
     - TODO
+
+  # Handed to a new consuming project once, before any component: tokens, Tailwind and PostCSS setup.
+  foundation:
+    files: ["src/index.css", "tailwind.config.js", "postcss.config.js"]
+    packages: [tailwindcss, postcss, autoprefixer]

@@ -2,9 +2,9 @@ import { readdirSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CLIENTS_DIR, ConfigError, loadConfig, resolveConfigPath } from "../config/load.js";
-import { Concierge } from "../concierge/concierge.js";
+import { Concierge, type CallerInfo } from "../concierge/concierge.js";
 import { createMcpServer } from "../concierge/mcp.js";
-import { JsonlAuditLog, loadContract, requestLogPath } from "../concierge/node.js";
+import { JsonlAuditLog, loadContract, loadSources, requestLogPath } from "../concierge/node.js";
 import { DOCENT_VERSION, ingest } from "../ingestion/ingest.js";
 import { consoleSummary, writeOutputs } from "../ingestion/report.js";
 
@@ -14,6 +14,7 @@ Usage:
   docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on error|warning] [--quiet]
   docent serve  (--client <id> | --config <path>)
   docent ask    (--client <id> | --config <path>) [--component <id>] "<question>"
+  docent fetch  (--client <id> | --config <path>) [--json] (<component>... | --foundation)
   docent check-config (--client <id> | --config <path>)
   docent list-clients
 
@@ -21,6 +22,7 @@ Commands:
   ingest         Read the client's design system and write contracts/<client>/contract.json and gaps.md
   serve          Run the MCP server for one client over stdio (register this command in Cursor, Claude Code, …)
   ask            Ask the concierge a question from the terminal; prints the validated response
+  fetch          Preview what get_component / get_foundation would deliver
   check-config   Validate a client config without ingesting
   list-clients   List configs in config/clients/
 
@@ -42,6 +44,8 @@ async function main(): Promise<number> {
       ref: { type: "string" },
       "fail-on": { type: "string" },
       component: { type: "string" },
+      foundation: { type: "boolean", default: false },
+      json: { type: "boolean", default: false },
       quiet: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -77,8 +81,8 @@ async function main(): Promise<number> {
     if (failOn && failOn !== "error" && failOn !== "warning") throw new ConfigError("--fail-on must be error or warning");
 
     const log = values.quiet ? undefined : (m: string) => console.log(`  ${m}`);
-    const contract = await ingest(config, { log });
-    const outputs = writeOutputs(config, contract);
+    const { contract, sources } = await ingest(config, { log });
+    const outputs = writeOutputs(config, contract, sources);
     console.log(consoleSummary(contract, outputs));
 
     const { error, warning } = contract.stats.gaps;
@@ -86,13 +90,31 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  if (command === "serve" || command === "ask") {
+  if (command === "serve" || command === "ask" || command === "fetch") {
     const contract = loadContract(config);
     const concierge = new Concierge({
       contract,
       audit: new JsonlAuditLog(requestLogPath(config.client.id), config.client.id),
       docentVersion: DOCENT_VERSION,
+      sources: loadSources(config, contract),
     });
+
+    if (command === "fetch") {
+      const names = positionals.slice(1);
+      if (!values.foundation && names.length === 0) throw new ConfigError("fetch needs component names, or --foundation");
+      const caller: CallerInfo = { name: "cli", client: null, transport: "cli" };
+      const response = values.foundation ? await concierge.getFoundation({}, caller) : await concierge.getComponent({ components: names }, caller);
+      if (values.json) console.log(JSON.stringify(response, null, 2));
+      else {
+        console.log(`${response.status}: ${response.message}`);
+        console.log(`validation: ${response.validation.passed ? "passed" : "FAILED"} (${response.validation.checks.map((c) => c.id).join(", ")})`);
+        for (const c of response.components) console.log(`  component ${c.name} (${c.reason}) → ${c.importPath}`);
+        for (const f of response.files) console.log(`  file      ${f.path} (${f.role}, ${f.content.length} chars)`);
+        for (const p of response.packages) console.log(`  package   ${p.name}@${p.version ?? "?"}${p.dev ? " (dev)" : ""}`);
+        response.instructions.forEach((step, i) => console.log(`  ${i + 1}. ${step}`));
+      }
+      return response.status === "error" ? 1 : 0;
+    }
 
     if (command === "ask") {
       const question = positionals.slice(1).join(" ");

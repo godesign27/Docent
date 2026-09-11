@@ -20,11 +20,16 @@ export interface WrittenOutputs {
   diff: ContractDiff;
 }
 
-export function writeOutputs(config: ClientConfig, contract: Contract): WrittenOutputs {
+export function writeOutputs(config: ClientConfig, contract: Contract, sources: Record<string, string>): WrittenOutputs {
   const dir = outputDir(config);
   mkdirSync(dir, { recursive: true });
   const contractPath = join(dir, "contract.json");
   const reportPath = join(dir, "gaps.md");
+  // The files Docent may hand to calling agents, pinned to this contract.
+  writeFileSync(
+    join(dir, "sources.json"),
+    JSON.stringify({ contractHash: contract.contentHash, commit: contract.source.commit, files: sources }) + "\n",
+  );
 
   let previous: Partial<Contract> | null = null;
   if (existsSync(contractPath)) {

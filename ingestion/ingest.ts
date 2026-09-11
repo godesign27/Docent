@@ -18,6 +18,7 @@ import { importPathFromAliases, importPathFromTemplate, loadPathAliases, resolve
 import { loadManifest, type ManifestEntry } from "./manifest.js";
 import { resolveSource, type ResolvedSource } from "./source.js";
 import { attachSpecs, loadSpecs } from "./specs.js";
+import { buildDistribution } from "./distribution.js";
 import { normalizeTokens } from "./tokens/normalize.js";
 import { ClassIndex } from "./tokens/tailwind-classes.js";
 import type { RawToken, TailwindEntry } from "./tokens/values.js";
@@ -28,12 +29,18 @@ export interface IngestOptions {
   log?: (message: string) => void;
 }
 
-export async function ingest(config: ClientConfig, options: IngestOptions = {}): Promise<Contract> {
+export interface IngestResult {
+  contract: Contract;
+  /** Content of every file in contract.sourceFiles, at the ingested commit. */
+  sources: Record<string, string>;
+}
+
+export async function ingest(config: ClientConfig, options: IngestOptions = {}): Promise<IngestResult> {
   const source = resolveSource(config, options.log);
   return buildContract(config, source, options);
 }
 
-export async function buildContract(config: ClientConfig, source: ResolvedSource, options: IngestOptions = {}): Promise<Contract> {
+export async function buildContract(config: ClientConfig, source: ResolvedSource, options: IngestOptions = {}): Promise<IngestResult> {
   const log = options.log ?? (() => {});
   const { root } = source;
   const { ingestion } = config;
@@ -233,6 +240,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       docs,
       manifest: manifestInfo,
       guidance: null,
+      install: { supportFiles: [], componentDependencies: [], packages: [] },
     };
   });
 
@@ -261,6 +269,18 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       suggestion: "Remove the entry, or add the component's files to the react-tsx include globs.",
     });
   }
+
+  // --- Distribution ----------------------------------------------------------
+  const distribution = await buildDistribution({
+    root,
+    components,
+    aliases,
+    foundation: ingestion.foundation,
+    packageJson: ingestion.packageJson,
+    scanned,
+    gaps,
+  });
+  for (const component of components) component.install = distribution.installs.get(component.id)!;
 
   // --- Ingestion-level gaps --------------------------------------------------
   if (ingestion.components.length > 0 && components.length === 0) {
@@ -302,13 +322,15 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     modes,
     components,
     tokens,
+    sourceFiles: distribution.sourceFiles,
+    foundation: distribution.foundation,
     patterns: [],
     governance: [],
     gaps: gapList,
   };
   const contentHash = "sha256:" + createHash("sha256").update(JSON.stringify(body)).digest("hex");
 
-  return Contract.parse({
+  const contract = Contract.parse({
     schemaVersion: CONTRACT_SCHEMA_VERSION,
     docentVersion: DOCENT_VERSION,
     client: config.client,
@@ -324,6 +346,8 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
     modes,
     components,
     tokens,
+    sourceFiles: distribution.sourceFiles,
+    foundation: distribution.foundation,
     patterns: [],
     governance: [],
     gaps: gapList,
@@ -339,6 +363,7 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       filesScanned: scanned.size,
     },
   });
+  return { contract, sources: distribution.sources };
 }
 
 async function loadMarkdown(
