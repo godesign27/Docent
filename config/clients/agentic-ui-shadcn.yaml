@@ -73,7 +73,15 @@ ingestion:
 
   # Handed to a new consuming project once, before any component: tokens, Tailwind and PostCSS setup.
   foundation:
-    files: ["src/index.css", "tailwind.config.js", "postcss.config.js"]
+    # The AI kit's surface, component and typography variables are imported by src/main.tsx, in this order.
+    files:
+      - src/index.css
+      - src/components/ai/tokens/css/ai-surface.css
+      - src/components/ai/tokens/css/ai-component-tokens.css
+      - src/components/ai/tokens/css/ai-typography.css
+      - src/components/ai/tokens/css/zds-bridge.css
+      - tailwind.config.js
+      - postcss.config.js
     packages: [tailwindcss, postcss, autoprefixer]
 
   # Semantic token roles: meanings, the need -> utility decision table, forbidden token usage.

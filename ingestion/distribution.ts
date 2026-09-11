@@ -139,7 +139,11 @@ export async function buildDistribution(input: DistributionInput): Promise<Distr
 
   let foundation: Foundation | null = null;
   if (input.foundation) {
-    const files = await findFiles(root, input.foundation.files);
+    // Config order is import order for stylesheets (tokens before the files that use them), so it is kept.
+    const files: string[] = [];
+    for (const pattern of input.foundation.files) {
+      for (const file of await findFiles(root, [pattern])) if (!files.includes(file)) files.push(file);
+    }
     if (files.length === 0) {
       gaps.add({
         severity: "error",
@@ -153,7 +157,7 @@ export async function buildDistribution(input: DistributionInput): Promise<Distr
       if (!result.packages.has(name)) result.packages.set(name, requirement(name, { type: "source", id: "foundation" }));
     }
     foundation = {
-      files: [...files, ...result.support].sort(),
+      files: [...files, ...[...result.support].filter((f) => !files.includes(f)).sort()],
       packages: [...result.packages.values()].sort((a, b) => a.name.localeCompare(b.name)),
       pathAliases: aliases.map((a) => ({ alias: a.alias, target: a.target })),
     };

@@ -175,7 +175,7 @@ export function createDistributor(contract: Contract, sources: Record<string, st
         ...dependencyInstruction(foundation.packages),
         ...installCommands(foundation.packages),
         "Write each file at its path. Where the project already has that file (for example its own tailwind.config or global CSS), merge rather than replace: keep every design-system CSS variable, theme extension and plugin, and keep the project's own content globs and entry styles.",
-        "Make sure the global CSS file is imported by the app entry (e.g. src/main.tsx) and that Tailwind's content globs cover the project's source files.",
+        "Import every CSS file in files from the app entry (e.g. src/main.tsx), in the order listed, and make sure Tailwind's content globs cover the project's source files.",
         ...aliasInstruction,
         "Then fetch components with get_component.",
       ],
