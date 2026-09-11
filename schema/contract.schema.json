@@ -4,7 +4,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "docentVersion": {
       "type": "string"
@@ -276,6 +276,13 @@
             },
             "description": "Non-component value exports, e.g. buttonVariants"
           },
+          "typeExports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Exported TypeScript types and interfaces, e.g. ButtonProps"
+          },
           "dependencies": {
             "type": "array",
             "items": {
@@ -385,6 +392,172 @@
               }
             ],
             "description": "What the client's own component inventory says about this component, placeholders removed"
+          },
+          "guidance": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "description": "Path relative to the design-system root"
+                      },
+                      "line": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "file"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "lifecycle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "category": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "intent": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "forbiddenUsage": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "agentRules": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "propHints": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Prop name -> authored usage hint"
+                  },
+                  "structure": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Required nesting of compound parts, as authored"
+                  },
+                  "accessibility": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "experience": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "AI autonomy and accountability metadata, when declared"
+                  },
+                  "related": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "knownGaps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Limitations the client declared themselves"
+                  }
+                },
+                "required": [
+                  "source",
+                  "id",
+                  "lifecycle",
+                  "category",
+                  "intent",
+                  "description",
+                  "forbiddenUsage",
+                  "agentRules",
+                  "propHints",
+                  "structure",
+                  "accessibility",
+                  "experience",
+                  "related",
+                  "knownGaps"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -395,11 +568,13 @@
           "files",
           "parts",
           "otherExports",
+          "typeExports",
           "dependencies",
           "tokenRefs",
           "description",
           "docs",
-          "manifest"
+          "manifest",
+          "guidance"
         ],
         "additionalProperties": false
       }
@@ -640,6 +815,9 @@
               "not-in-manifest",
               "manifest-entry-without-source",
               "non-token-value",
+              "spec-missing",
+              "spec-drift",
+              "spec-without-source",
               "unknown-token-type",
               "unresolved-token-reference",
               "missing-default-mode",

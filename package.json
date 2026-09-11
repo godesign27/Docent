@@ -12,14 +12,15 @@
     "docent": "./bin/docent.js"
   },
   "scripts": {
-    "docent": "tsx ingestion/cli.ts",
-    "ingest": "tsx ingestion/cli.ts ingest",
+    "docent": "tsx cli/index.ts",
+    "ingest": "tsx cli/index.ts ingest",
     "schema:export": "tsx schema/export-json-schema.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "postcss": "^8.5.6",
     "tinyglobby": "^0.2.15",
     "typescript": "~5.9.3",

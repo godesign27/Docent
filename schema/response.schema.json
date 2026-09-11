@@ -1,0 +1,653 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "requestId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "answered",
+        "clarification-needed",
+        "not-found",
+        "error"
+      ]
+    },
+    "specialist": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "components"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "inventoryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowed": {
+            "description": "In the client's closed-world inventory. false = must not be used. null = the client keeps no inventory",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "lifecycle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "intent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "import": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "statement": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "statement"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "primary": {
+                  "type": "boolean"
+                },
+                "element": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "props": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "hint": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "type",
+                      "required"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "variants": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "values"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "inheritsFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Props are also accepted from these types; they are not listed individually"
+                }
+              },
+              "required": [
+                "name",
+                "primary",
+                "element",
+                "props",
+                "variants",
+                "inheritsFrom"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "helpers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Non-component exports such as cva variant functions"
+          },
+          "typeExports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "structure": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required nesting of parts, as authored by the client"
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "forbiddenUsage": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "agentRules": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "docs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "heading": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "heading"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "forbiddenUsage",
+              "agentRules",
+              "docs"
+            ],
+            "additionalProperties": false
+          },
+          "accessibility": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "experience": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI autonomy and the accountability it owes, for AI components"
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "note"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "tokens": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "knownGaps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Limitations the design-system team declared"
+          },
+          "docentGaps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "severity",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            "description": "What Docent could not establish or found inconsistent"
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "spec": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "component",
+              "spec"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "inventoryId",
+          "name",
+          "allowed",
+          "lifecycle",
+          "category",
+          "intent",
+          "description",
+          "import",
+          "parts",
+          "helpers",
+          "typeExports",
+          "structure",
+          "usage",
+          "accessibility",
+          "experience",
+          "related",
+          "tokens",
+          "knownGaps",
+          "docentGaps",
+          "sources"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Things the question named that do not exist in this design system"
+    },
+    "clarification": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "inventoryId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "intent": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "inventoryId",
+                  "name",
+                  "intent"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "question",
+            "options"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "inventoryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "intent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "inventoryId",
+          "name",
+          "intent"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "inventory": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "inventoryId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "intent": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "category": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "allowed": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "inventoryId",
+              "name",
+              "intent",
+              "category",
+              "allowed"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "failures": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "passed",
+              "failures"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "passed",
+        "checks"
+      ],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "client": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "contractHash": {
+          "type": "string"
+        },
+        "contractGeneratedAt": {
+          "type": "string"
+        },
+        "sourceCommit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "docentVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "client",
+        "contractHash",
+        "contractGeneratedAt",
+        "sourceCommit",
+        "docentVersion"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "requestId",
+    "status",
+    "specialist",
+    "message",
+    "components",
+    "unresolved",
+    "clarification",
+    "alternatives",
+    "inventory",
+    "validation",
+    "provenance"
+  ],
+  "additionalProperties": false
+}

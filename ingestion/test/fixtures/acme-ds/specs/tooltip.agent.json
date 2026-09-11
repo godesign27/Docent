@@ -1,0 +1,10 @@
+{
+  "id": "acme:tooltip",
+  "status": "beta",
+  "intent": "Name a control whose purpose is not obvious.",
+  "source": "src/components/tooltip.tsx",
+  "exports": ["Tooltip"],
+  "props": [],
+  "rules": { "forbiddenUsage": [], "agentRules": [] },
+  "gaps": []
+}

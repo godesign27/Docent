@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 
-export const CONTRACT_SCHEMA_VERSION = "0.1.0";
+export const CONTRACT_SCHEMA_VERSION = "0.2.0";
 
 export const SourceLocation = z.object({
   file: z.string().describe("Path relative to the design-system root"),
@@ -45,6 +45,9 @@ export const GapKind = z.enum([
   "not-in-manifest",
   "manifest-entry-without-source",
   "non-token-value",
+  "spec-missing",
+  "spec-drift",
+  "spec-without-source",
   // tokens
   "unknown-token-type",
   "unresolved-token-reference",
@@ -110,6 +113,31 @@ export const ComponentDocs = z.object({
 });
 export type ComponentDocs = z.infer<typeof ComponentDocs>;
 
+/**
+ * Guidance the client's design-system team authored for agents (e.g. a
+ * per-component .agent.json). It covers what source code cannot say: intent,
+ * forbidden usage, accessibility obligations. Mechanical facts (props,
+ * variants, exports) always come from source; specs that disagree are
+ * reported as spec-drift gaps.
+ */
+export const ComponentGuidance = z.object({
+  source: SourceLocation,
+  id: z.string().nullable(),
+  lifecycle: z.string().nullable(),
+  category: z.string().nullable(),
+  intent: z.string().nullable(),
+  description: z.string().nullable(),
+  forbiddenUsage: z.array(z.string()),
+  agentRules: z.array(z.string()),
+  propHints: z.record(z.string(), z.string()).describe("Prop name -> authored usage hint"),
+  structure: z.unknown().nullable().describe("Required nesting of compound parts, as authored"),
+  accessibility: z.record(z.string(), z.unknown()).nullable(),
+  experience: z.record(z.string(), z.unknown()).nullable().describe("AI autonomy and accountability metadata, when declared"),
+  related: z.array(z.object({ id: z.string(), note: z.string().nullable() })),
+  knownGaps: z.array(z.string()).describe("Limitations the client declared themselves"),
+});
+export type ComponentGuidance = z.infer<typeof ComponentGuidance>;
+
 export const ComponentContract = z.object({
   id: z.string().describe("Stable slug derived from the source file name"),
   name: z.string(),
@@ -118,6 +146,7 @@ export const ComponentContract = z.object({
   files: z.array(z.string()),
   parts: z.array(ComponentPart),
   otherExports: z.array(z.string()).describe("Non-component value exports, e.g. buttonVariants"),
+  typeExports: z.array(z.string()).describe("Exported TypeScript types and interfaces, e.g. ButtonProps"),
   dependencies: z.array(z.string()).describe("External packages imported by the component"),
   tokenRefs: z.array(z.string()).describe("Ids of design tokens referenced by the component's styles"),
   description: z.string().nullable(),
@@ -132,6 +161,7 @@ export const ComponentContract = z.object({
     })
     .nullable()
     .describe("What the client's own component inventory says about this component, placeholders removed"),
+  guidance: ComponentGuidance.nullable(),
 });
 export type ComponentContract = z.infer<typeof ComponentContract>;
 

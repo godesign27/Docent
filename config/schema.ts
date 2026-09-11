@@ -59,6 +59,38 @@ const ManifestConfig = z.object({
     .default({ notes: [] }),
 });
 
+const SpecsConfig = z.object({
+  /** Per-component structured spec files authored by the client, e.g. **\/*.agent.json. */
+  include: Globs,
+  exclude: z.array(z.string()).default([]),
+  /** Field holding the component's source file path, used to pair a spec with its component. */
+  sourceField: z.string().optional(),
+  /** Field holding the inventory id, used when sourceField is absent or unmatched. */
+  idField: z.string().optional(),
+  /** Dot paths into the spec for each kind of guidance. Unmapped kinds are left empty. */
+  fields: z
+    .object({
+      lifecycle: z.string().optional(),
+      category: z.string().optional(),
+      intent: z.string().optional(),
+      description: z.string().optional(),
+      forbiddenUsage: z.string().optional(),
+      agentRules: z.string().optional(),
+      structure: z.string().optional(),
+      accessibility: z.string().optional(),
+      experience: z.string().optional(),
+      related: z.string().optional(),
+      knownGaps: z.string().optional(),
+      /** Array of { name, type, required, hint } — hints are kept, the rest is only drift-checked. */
+      props: z.string().optional(),
+      /** Checked against source for drift, never copied into the contract. */
+      exports: z.string().optional(),
+      variants: z.string().optional(),
+      sizes: z.string().optional(),
+    })
+    .default({}),
+});
+
 export const ClientConfig = z.object({
   client: z.object({
     id: z
@@ -84,6 +116,7 @@ export const ClientConfig = z.object({
     components: z.array(ReactTsxExtractor).default([]),
     tokens: z.array(z.discriminatedUnion("extractor", [CssVariablesExtractor, TailwindThemeExtractor, DtcgJsonExtractor])).default([]),
     manifest: ManifestConfig.optional(),
+    specs: SpecsConfig.optional(),
     docs: z
       .object({
         /** Markdown files searched for per-component usage documentation. */
@@ -115,3 +148,4 @@ export type CssVariablesExtractorConfig = z.infer<typeof CssVariablesExtractor>;
 export type TailwindThemeExtractorConfig = z.infer<typeof TailwindThemeExtractor>;
 export type DtcgJsonExtractorConfig = z.infer<typeof DtcgJsonExtractor>;
 export type ManifestConfig = z.infer<typeof ManifestConfig>;
+export type SpecsConfig = z.infer<typeof SpecsConfig>;

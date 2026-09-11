@@ -1,0 +1,12 @@
+{
+  "id": "acme:dialog",
+  "status": "beta",
+  "intent": "Interrupt for a focused task that must be finished or cancelled.",
+  "source": "src/components/dialog.tsx",
+  "exports": ["Dialog", "DialogContent", "DialogClose"],
+  "variants": [],
+  "props": [],
+  "structure": { "root": "Dialog", "parts": [{ "name": "DialogContent", "parent": "Dialog", "required": true }] },
+  "rules": { "forbiddenUsage": ["Dialogs that open other dialogs"], "agentRules": [] },
+  "gaps": []
+}

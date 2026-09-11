@@ -115,6 +115,38 @@ describe("components", () => {
   });
 });
 
+describe("specs", () => {
+  it("attaches authored guidance and drops placeholders", () => {
+    const guidance = component("button").guidance!;
+    expect(guidance).toMatchObject({
+      id: "acme:button",
+      lifecycle: "stable",
+      intent: "Commit to the main action on a surface.",
+      forbiddenUsage: ["Two primary buttons in one region"],
+      agentRules: ["Label with a verb naming the outcome."],
+      accessibility: { role: "button" },
+      knownGaps: ["No loading spinner styles yet"],
+    });
+    expect(guidance.propHints).toEqual({ intent: "danger only for destructive actions.", asChild: "Use for links that must look like a button." });
+    expect(component("dialog").guidance?.structure).toMatchObject({ root: "Dialog" });
+    expect(component("button").typeExports).toEqual(["ButtonProps"]);
+  });
+
+  it("reports drift where the spec disagrees with source, and keeps source", () => {
+    expect(gapsFor("button", "spec-drift").map((g) => g.id)).toEqual(["spec-drift:component:button:required-props"]);
+    expect(gapsFor("button", "spec-drift")[0]!.message).toContain("Button.tone");
+    const dialogDrift = gapsFor("dialog", "spec-drift")[0]!.message;
+    expect(dialogDrift).toContain("exports missing from spec: `DIALOG_Z`");
+    expect(dialogDrift).toContain("exports in spec but not in source: `DialogClose`");
+    expect(component("dialog").parts.map((p) => p.name)).toEqual(["Dialog", "DialogContent"]);
+  });
+
+  it("flags components without specs and specs without components", () => {
+    expect(gapsFor("stepper", "spec-missing")).toHaveLength(1);
+    expect(gapsFor("acme:tooltip", "spec-without-source")).toHaveLength(1);
+  });
+});
+
 describe("tokens", () => {
   it("merges CSS modes with Tailwind bindings", () => {
     expect(token("primary")).toMatchObject({

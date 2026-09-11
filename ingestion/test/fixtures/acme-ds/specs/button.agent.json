@@ -1,0 +1,24 @@
+{
+  "id": "acme:button",
+  "status": "stable",
+  "intent": "Commit to the main action on a surface.",
+  "description": "The primary interactive control.",
+  "source": "src/components/button.tsx",
+  "exports": ["Button", "buttonVariants", "ButtonProps"],
+  "variants": ["primary", "danger"],
+  "props": [
+    { "name": "intent", "type": "\"primary\" | \"danger\"", "required": false, "hint": "danger only for destructive actions." },
+    { "name": "asChild", "type": "boolean", "required": false, "hint": "Use for links that must look like a button." },
+    { "name": "loading", "type": "boolean", "required": false, "hint": "TBD" }
+  ],
+  "rules": {
+    "forbiddenUsage": ["Two primary buttons in one region", "TODO"],
+    "agentRules": ["Label with a verb naming the outcome."]
+  },
+  "a11y": { "role": "button", "keyboard": ["Enter", "Space"] },
+  "related": [
+    { "id": "acme:dialog", "note": "Required companion for destructive actions" },
+    { "id": "acme:tooltip", "note": "Name icon-only buttons" }
+  ],
+  "gaps": ["No loading spinner styles yet"]
+}

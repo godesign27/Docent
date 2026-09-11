@@ -22,6 +22,22 @@ ingestion:
     path: components.json
     itemsPath: components
     fields: { id: key, name: title, files: paths, status: lifecycle, category: group, notes: [a11y] }
+  specs:
+    include: ["specs/*.agent.json"]
+    sourceField: source
+    idField: id
+    fields:
+      lifecycle: status
+      intent: intent
+      description: description
+      forbiddenUsage: rules.forbiddenUsage
+      agentRules: rules.agentRules
+      structure: structure
+      accessibility: a11y
+      related: related
+      knownGaps: gaps
+      props: props
+      exports: exports
   docs:
     components: ["docs/**/*.md"]
     tokens: ["docs/tokens.md"]

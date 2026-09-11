@@ -70,6 +70,6 @@ export function loadManifest(root: string, config: ManifestConfig, gaps: GapColl
   });
 }
 
-function getPath(value: unknown, path: string): unknown {
+export function getPath(value: unknown, path: string): unknown {
   return path.split(".").reduce<unknown>((acc, key) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[key] : undefined), value);
 }

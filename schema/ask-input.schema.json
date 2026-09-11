@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "description": "The question, in plain language. Name components as they appear in code (e.g. Button, AlertDialog) when you know them."
+    },
+    "component": {
+      "description": "Component id or export name when you already know which one you mean, e.g. ui:button or Button.",
+      "type": "string",
+      "maxLength": 200
+    },
+    "caller": {
+      "description": "Who is asking, for the audit trail, e.g. cursor or checkout-agent.",
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "question"
+  ],
+  "additionalProperties": false
+}

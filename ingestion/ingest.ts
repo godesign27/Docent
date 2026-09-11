@@ -17,6 +17,7 @@ import { GapCollector } from "./gaps.js";
 import { importPathFromAliases, importPathFromTemplate, loadPathAliases, resolveSpecifier } from "./import-paths.js";
 import { loadManifest, type ManifestEntry } from "./manifest.js";
 import { resolveSource, type ResolvedSource } from "./source.js";
+import { attachSpecs, loadSpecs } from "./specs.js";
 import { normalizeTokens } from "./tokens/normalize.js";
 import { ClassIndex } from "./tokens/tailwind-classes.js";
 import type { RawToken, TailwindEntry } from "./tokens/values.js";
@@ -193,14 +194,6 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
         location: { file: mod.file },
         suggestion: `Document when to use ${name}, and when not to.`,
       });
-    } else if (!description) {
-      gaps.add({
-        severity: "info",
-        kind: "missing-description",
-        subject,
-        message: `${name} has usage docs but no JSDoc summary on its primary export.`,
-        location: primary?.source ?? { file: mod.file },
-      });
     }
 
     // Tokens
@@ -233,13 +226,29 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       files: [mod.file],
       parts: mod.parts,
       otherExports: mod.otherExports,
+      typeExports: mod.typeExports,
       dependencies: mod.dependencies,
       tokenRefs: [...analysis.tokenRefs].sort(),
       description,
       docs,
       manifest: manifestInfo,
+      guidance: null,
     };
   });
+
+  if (ingestion.specs) {
+    attachSpecs(components, await loadSpecs(root, ingestion.specs, isPlaceholder, scanned, gaps), gaps);
+  }
+  for (const component of components) {
+    if (component.docs.length === 0 || component.description || component.guidance?.description || component.guidance?.intent) continue;
+    gaps.add({
+      severity: "info",
+      kind: "missing-description",
+      subject: { type: "component", id: component.id },
+      message: `${component.name} has usage docs but no summary: no JSDoc on its primary export and no description in a spec.`,
+      location: component.parts.find((p) => p.primary)?.source ?? { file: component.files[0]! },
+    });
+  }
 
   for (const entry of manifest ?? []) {
     if (matchedEntries.has(entry)) continue;

@@ -12,6 +12,7 @@ export interface ExtractedModule {
   file: string;
   parts: ComponentPart[];
   otherExports: string[];
+  typeExports: string[];
   dependencies: string[];
   /** Class-name strings used for styling, for token cross-referencing. */
   classStrings: { value: string; line: number }[];
@@ -55,6 +56,7 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
   const values = new Map<string, { node: ts.Node; statement: ts.Statement }>();
   const types = new Map<string, ts.InterfaceDeclaration | ts.TypeAliasDeclaration>();
   const exported = new Map<string, string>(); // exported name -> local name
+  const typeExports = new Set<string>();
   const imports = new Map<string, string>(); // local name -> module specifier
   const dependencies = new Set<string>();
 
@@ -88,11 +90,12 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
       if (hasExport(statement)) exported.set(statement.name.text, statement.name.text);
     } else if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) {
       types.set(statement.name.text, statement);
-    } else if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier && !statement.isTypeOnly) {
+      if (hasExport(statement)) typeExports.add(statement.name.text);
+    } else if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier) {
       if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
         for (const el of statement.exportClause.elements) {
-          if (el.isTypeOnly) continue;
-          exported.set(el.name.text, (el.propertyName ?? el.name).text);
+          if (statement.isTypeOnly || el.isTypeOnly) typeExports.add(el.name.text);
+          else exported.set(el.name.text, (el.propertyName ?? el.name).text);
         }
       }
     } else if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression)) {
@@ -118,7 +121,10 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
   for (const [exportName, localName] of [...exported].sort(([a], [b]) => a.localeCompare(b))) {
     const decl = values.get(localName);
     const name = exportName === "default" ? localName : exportName;
-    if (!decl) continue;
+    if (!decl) {
+      if (types.has(localName)) typeExports.add(name); // `export { ButtonProps }` without the type modifier
+      continue;
+    }
     const shape = componentShape(decl.node, imports);
     if (!/^[A-Z]/.test(name) || !shape) {
       otherExports.push(name);
@@ -200,6 +206,7 @@ export function extractReactModule(file: string, text: string, gaps: GapCollecto
     file,
     parts,
     otherExports: otherExports.sort(),
+    typeExports: [...typeExports].sort(),
     dependencies: [...dependencies].sort(),
     classStrings: collectClassStrings(sf),
     variantDefs,

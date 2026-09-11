@@ -33,7 +33,9 @@ Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
 
 ## Status
 
-**Phase 0 — single-client ingestion: built.** Docent reads a design-system repo into a structured, inspectable contract and flags gaps instead of guessing. The concierge, specialists and MCP server start in Phase 1 — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+- **Phase 0 — single-client ingestion: built.** Docent reads a design-system repo into a structured, inspectable contract and flags gaps instead of guessing.
+- **Phase 1 — one specialist, end to end: built.** An MCP server with one `ask` tool, a concierge that routes to the Components & contracts specialist, validation of every answer against the contract, and a per-client request audit log.
+- Phase 2 (remaining specialists, real routing, escalation) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
 ## Getting started
 
@@ -58,10 +60,49 @@ That clones the client repo (shallow, read-only) into `.docent/sources/`, and wr
 4. `npm run ingest -- --client <client-id>`
 5. Read `gaps.md`; adjust globs or modes for config problems, and hand the rest to the design-system team
 
+### Connect a calling agent
+
+After ingesting, register Docent as an MCP server. It serves one client over stdio.
+
+**Claude Code**
+
+```bash
+claude mcp add docent -- node /absolute/path/to/Docent/bin/docent.js serve --client agentic-ui-shadcn
+```
+
+**Cursor** — `.cursor/mcp.json` in the project that builds UI:
+
+```json
+{
+  "mcpServers": {
+    "docent": {
+      "command": "node",
+      "args": ["/absolute/path/to/Docent/bin/docent.js", "serve", "--client", "agentic-ui-shadcn"]
+    }
+  }
+}
+```
+
+The agent gets one read-only tool, `ask`:
+
+```json
+{ "question": "What props does AIButton take?", "component": "ai:ai-button", "caller": "checkout-agent" }
+```
+
+Only `question` is required. The response carries a `status` (`answered`, `clarification-needed`, `not-found`, `error`), the validated component contracts, anything the question named that doesn't exist (`unresolved`), the validation checks that ran, and provenance (contract hash, source commit). Every exchange is appended to `logs/<client>/requests.jsonl`. Details: [`concierge/README.md`](concierge/README.md).
+
+Try it without an agent:
+
+```bash
+npm run docent -- ask --client agentic-ui-shadcn "Should I use Dialog or Sheet?"
+```
+
 ### CLI
 
 ```
 docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on error|warning] [--quiet]
+docent serve  (--client <id> | --config <path>)
+docent ask    (--client <id> | --config <path>) [--component <id>] "<question>"
 docent check-config (--client <id> | --config <path>)
 docent list-clients
 ```
@@ -77,7 +118,9 @@ docent list-clients
 | `tailwind-theme` | `tailwind.config.*` theme | Utility bindings (`bg-primary` → `--primary`), types from theme sections, derived values |
 | `dtcg-json` | W3C design tokens / Style Dictionary JSON | Tokens with declared types, descriptions and aliases |
 
-It also cross-references the client's own component inventory (`manifest`), usage docs in markdown (`docs.components`), token docs (`docs.tokens`), and tsconfig path aliases for import paths.
+It also cross-references the client's own component inventory (`manifest`), per-component agent specs such as `*.agent.json` (`specs` — intent, forbidden usage, agent rules, accessibility, AI experience metadata), usage docs in markdown (`docs.components`), token docs (`docs.tokens`), and tsconfig path aliases for import paths.
+
+**Source wins.** Props, variants and exports always come from source. Where a spec disagrees, the contract follows source and records a `spec-drift` gap — for example a required prop the spec forgot to list.
 
 **Nothing from the client repo is executed.** Components and Tailwind configs are parsed statically; values that would need execution (spreads, imported presets, computed themes) are reported as gaps.
 
@@ -97,11 +140,12 @@ The full list lives in `GapKind` in [`schema/contract.ts`](schema/contract.ts).
 ## Repo structure
 
 ```
-/schema         — contract schema (zod + exported JSON Schema); runtime-agnostic, shared by every layer
+/schema         — contract, request and response schemas (zod + exported JSON Schema); runtime-agnostic
 /config         — per-client configuration and its schema
 /ingestion      — parses a client repo into normalized contracts
-/concierge      — the routing agent and MCP server entry point (Phase 1)
-/specialists    — tokens, components, patterns, governance handlers (Phases 1–2)
+/concierge      — the routing agent, validation gate, audit log and MCP server
+/specialists    — components (Phase 1); tokens, patterns, governance (Phase 2)
+/cli            — the docent command
 /contracts      — generated per-client contracts (git-ignored)
 /logs           — per-client audit trail (git-ignored)
 /docs           — PRD.md, IMPLEMENTATION_PLAN.md
