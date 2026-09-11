@@ -1,0 +1,35 @@
+# A second fixture client shaped nothing like acme: Tailwind v4 @theme tokens, no inventory,
+# no specs, no patterns, rules in markdown, and no patterns specialist.
+client:
+  id: globex-fixture
+  name: Globex Fixture
+source:
+  type: local
+  path: ./globex-ds
+specialists: [components, tokens, governance]
+ingestion:
+  components:
+    - extractor: react-tsx
+      include: ["src/components/ui/**/*.tsx", "src/components/charts/risk-donut.tsx"]
+  tokens:
+    - extractor: css-variables
+      include: ["src/styles/tokens.css", "src/index.css"]
+      modes: { "@theme": base, ":root": base, ".dark": dark }
+  defaultMode: base
+  docs:
+    components: ["docs/components.md"]
+  governance:
+    rules:
+      - include: ["AGENTS.md"]
+        heading: Rules of the road
+        category: road
+        severity: high
+    approvedImports: ["@/components/", "@/lib/"]
+    checks:
+      raw-color: road-1
+      palette-utility: road-1
+  foundation:
+    files: ["src/index.css"]
+    packages: ["@tailwindcss/vite"]
+escalation:
+  reviewers: [globex-ds-owners]

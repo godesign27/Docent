@@ -20,7 +20,12 @@ export interface WrittenOutputs {
   diff: ContractDiff;
 }
 
-export function writeOutputs(config: ClientConfig, contract: Contract, sources: Record<string, string>): WrittenOutputs {
+export function writeOutputs(
+  config: ClientConfig,
+  contract: Contract,
+  sources: Record<string, string>,
+  options: { logDir?: string } = {},
+): WrittenOutputs {
   const dir = outputDir(config);
   mkdirSync(dir, { recursive: true });
   const contractPath = join(dir, "contract.json");
@@ -45,7 +50,7 @@ export function writeOutputs(config: ClientConfig, contract: Contract, sources: 
   writeFileSync(reportPath, renderReport(contract, diff));
 
   // Audit trail of ingestion runs, kept per client like request logs will be.
-  const logDir = join(DOCENT_ROOT, "logs", config.client.id);
+  const logDir = options.logDir ?? join(DOCENT_ROOT, "logs", config.client.id);
   mkdirSync(logDir, { recursive: true });
   const logPath = join(logDir, "ingestion.jsonl");
   appendFileSync(

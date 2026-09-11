@@ -115,8 +115,10 @@ const PatternsConfig = z.object({
 
 const RuleSource = z.object({
   include: Globs,
-  /** Dot path to the array of rules. Entries may be objects or plain strings. */
+  /** JSON: dot path to the array of rules. Entries may be objects or plain strings. */
   itemsPath: z.string().default(""),
+  /** Markdown: the heading whose bullet list holds the rules, e.g. "Rules of the road". */
+  heading: z.string().optional(),
   /** Label used to group and route rules, e.g. forbidden, accessibility. */
   category: z.string(),
   fields: z
@@ -237,6 +239,8 @@ export const ClientConfig = z.object({
     ignoreCssVariablePrefixes: z.array(z.string()).default(["--tw-", "--radix-"]),
   }),
   escalation: EscalationPolicy.default(EscalationPolicy.parse({})),
+  /** Specialists this client gets. Leave one out when the design system has no data for it. */
+  specialists: z.array(z.enum(["components", "tokens", "patterns", "governance"])).min(1).default(["components", "tokens", "patterns", "governance"]),
   output: z
     .object({
       /** Relative to the Docent repo root. Defaults to contracts/<client.id>. */

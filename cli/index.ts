@@ -7,6 +7,7 @@ import { CLIENTS_DIR, ConfigError, loadConfig, resolveConfigPath } from "../conf
 import { Concierge, type CallerInfo } from "../concierge/concierge.js";
 import { createMcpServer } from "../concierge/mcp.js";
 import { EvalBatch, runEval } from "../concierge/eval.js";
+import { checkIsolation } from "../concierge/isolation.js";
 import { JsonlAuditLog, JsonlReviewStore, loadContract, loadSources, requestLogPath, reviewLogPath } from "../concierge/node.js";
 import { DOCENT_VERSION, ingest } from "../ingestion/ingest.js";
 import { consoleSummary, writeOutputs } from "../ingestion/report.js";
@@ -22,6 +23,7 @@ Usage:
   docent review  (--client <id> | --config <path>) <review-id> (--approve | --deny) --note "<why>" [--by <name>]
   docent eval   (--client <id> | --config <path>) [--file <batch.yaml>] [--verbose]
   docent check-config (--client <id> | --config <path>)
+  docent isolation
   docent list-clients
 
 Commands:
@@ -33,6 +35,7 @@ Commands:
   review         Approve or deny an escalated request
   eval           Run a labelled batch of requests and report routing and outcome accuracy
   check-config   Validate a client config without ingesting
+  isolation      Check that clients' contracts, snapshots, logs and reviews stay separate
   list-clients   List configs in config/clients/
 
 Options:
@@ -45,6 +48,12 @@ Options:
   --domain       For ask: force a specialist (components, tokens, patterns, governance)
   --quiet        Only print the summary
 `;
+
+function clientIds(): string[] {
+  return readdirSync(CLIENTS_DIR)
+    .filter((f) => /\.(ya?ml|json)$/.test(f) && !f.startsWith("_") && !f.includes(".eval."))
+    .map((f) => f.replace(/\.(ya?ml|json)$/, ""));
+}
 
 async function main(): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -78,11 +87,18 @@ async function main(): Promise<number> {
   }
 
   if (command === "list-clients") {
-    const clients = readdirSync(CLIENTS_DIR)
-      .filter((f) => /\.(ya?ml|json)$/.test(f) && !f.startsWith("_") && !f.includes(".eval."))
-      .map((f) => f.replace(/\.(ya?ml|json)$/, ""));
+    const clients = clientIds();
     console.log(clients.length ? clients.join("\n") : "No client configs yet. Copy config/clients/_template.yaml to get started.");
     return 0;
+  }
+
+  if (command === "isolation") {
+    const configs = clientIds().map((id) => loadConfig(resolveConfigPath({ client: id })));
+    const results = await checkIsolation(configs, { docentVersion: DOCENT_VERSION });
+    for (const r of results) console.log(`${r.passed ? "✔" : "✖"} ${r.check}${r.client ? ` [${r.client}]` : ""}: ${r.detail}`);
+    const failed = results.filter((r) => !r.passed).length;
+    console.log(`\n${results.length - failed}/${results.length} isolation checks passed`);
+    return failed ? 2 : 0;
   }
 
   const { config, path } = loadConfig(resolveConfigPath(values));
@@ -135,7 +151,7 @@ async function main(): Promise<number> {
     const file = values.file ?? join(CLIENTS_DIR, `${config.client.id}.eval.yaml`);
     if (!existsSync(file)) throw new ConfigError(`No eval batch at ${file}`);
     const batch = EvalBatch.parse(parseYaml(readFileSync(file, "utf8")));
-    const results = await runEval(loadContract(config), config.escalation, batch, DOCENT_VERSION);
+    const results = await runEval(loadContract(config), config.escalation, batch, DOCENT_VERSION, config.specialists);
     for (const r of results) {
       const label = r.case.name ?? r.case.ask;
       console.log(`${r.passed ? "✔" : "✖"} ${label}`);
@@ -157,6 +173,7 @@ async function main(): Promise<number> {
       audit: new JsonlAuditLog(requestLogPath(config.client.id), config.client.id),
       reviews: new JsonlReviewStore(reviewLogPath(config.client.id), config.client.id),
       policy: config.escalation,
+      domains: config.specialists,
       docentVersion: DOCENT_VERSION,
       sources: loadSources(config, contract),
     });

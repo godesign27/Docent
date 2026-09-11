@@ -84,7 +84,9 @@ export async function buildContract(config: ClientConfig, source: ResolvedSource
       scanned.add(file);
       const text = readText(root, file);
       if (extractor.extractor === "css-variables") {
-        rawTokens.push(...extractCssVariables(file, text, extractor.modes, ingestion.ignoreCssVariablePrefixes, gaps));
+        const css = extractCssVariables(file, text, extractor.modes, ingestion.ignoreCssVariablePrefixes, gaps);
+        rawTokens.push(...css.tokens);
+        tailwind.push(...css.tailwind);
       } else if (extractor.extractor === "tailwind-theme") {
         tailwind.push(...extractTailwindTheme(file, text, gaps));
       } else {

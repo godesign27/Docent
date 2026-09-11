@@ -36,7 +36,8 @@ Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
 - **Phase 0 — single-client ingestion: built.** Docent reads a design-system repo into a structured, inspectable contract and flags gaps instead of guessing.
 - **Phase 1 — one specialist, end to end: built.** An MCP server whose concierge routes to the Components & contracts specialist: `ask` for contracts, `get_component` / `get_foundation` to fetch source into a project without cloning the design system. Every result is validated against the contract and logged per client.
 - **Phase 2 — full specialist set and real routing: built.** Tokens & foundations, Patterns & usage and Governance & compliance specialists; evidence-based intent routing that can send one request to several specialists or ask a clarifying question; governance conflicts rejected or escalated to a human review queue by policy; ingestion of patterns, rules and semantic token roles. Measured with a labelled batch of real-world requests (`docent eval`).
-- Phase 3 (multi-client config and isolation checks) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+- **Phase 3 — multi-client config: built.** The same code serves a second, differently built design system (Tailwind v4 `@theme` tokens, no component inventory, rules in markdown, no patterns) through config alone, with per-client specialists and escalation policy, and `docent isolation` verifies that contracts, snapshots, logs and reviews never cross between clients.
+- Phase 4 (clone-and-go onboarding in under a day) is next — see [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
 ## Getting started
 
@@ -61,6 +62,25 @@ That clones the client repo (shallow, read-only) into `.docent/sources/`, and wr
 3. `npm run docent -- check-config --client <client-id>`
 4. `npm run ingest -- --client <client-id>`
 5. Read `gaps.md`; adjust globs or modes for config problems, and hand the rest to the design-system team
+6. Write `config/clients/<client-id>.eval.yaml` with real requests and run `npm run docent -- eval --client <client-id>`
+7. `npm run docent -- isolation` to confirm the new client is separated from every other client on this machine
+
+Client configs are git-ignored except the template and the reference client (`agentic-ui-shadcn`, GO Design's own design system): a client's config, contracts, logs and reviews stay in the clone that serves that client.
+
+### Running several clients
+
+Each client is its own config and its own MCP server process. Register one server per client in the calling agent:
+
+```json
+{
+  "mcpServers": {
+    "docent-agentic-ui": { "command": "/opt/homebrew/bin/node", "args": ["/absolute/path/to/Docent/bin/docent.js", "serve", "--client", "agentic-ui-shadcn"] },
+    "docent-acme": { "command": "/opt/homebrew/bin/node", "args": ["/absolute/path/to/Docent/bin/docent.js", "serve", "--client", "acme"] }
+  }
+}
+```
+
+A server loads exactly one client's contract, snapshot and policy, and its request log and review queue refuse entries for any other client.
 
 ### Connect a calling agent
 
@@ -132,6 +152,7 @@ docent reviews (--client <id> | --config <path>) [--all]
 docent review  (--client <id> | --config <path>) <review-id> (--approve | --deny) --note "<why>" [--by <name>]
 docent eval   (--client <id> | --config <path>) [--file <batch.yaml>] [--verbose]
 docent check-config (--client <id> | --config <path>)
+docent isolation
 docent list-clients
 ```
 
@@ -142,7 +163,7 @@ docent list-clients
 | Extractor | Reads | Produces |
 |---|---|---|
 | `react-tsx` | React components (`.tsx`/`.jsx`) | Exported parts, props (types, required, defaults, JSDoc), cva/tailwind-variants variants, rendered element, dependencies, token references |
-| `css-variables` | CSS custom properties | Tokens per theme mode, mapped from selectors in config (`:root`, `.dark`, `@media …`, Tailwind v4 `@theme`) |
+| `css-variables` | CSS custom properties | Tokens per theme mode, mapped from selectors in config (`:root`, `.dark`, `@media …`, `@theme`). Tailwind v4 `@theme` variables also become utility bindings (`--color-brand` → `bg-brand`); `@theme inline` aliases wire a utility to a runtime variable |
 | `tailwind-theme` | `tailwind.config.*` theme | Utility bindings (`bg-primary` → `--primary`), types from theme sections, derived values |
 | `dtcg-json` | W3C design tokens / Style Dictionary JSON | Tokens with declared types, descriptions and aliases |
 
@@ -153,10 +174,11 @@ Governance knowledge is read the same way, through field mappings in config:
 | Config | Reads | Produces |
 |---|---|---|
 | `patterns` | Pattern files (JSON) | Required/recommended/optional components (resolved to contract ids), sequence, rules, forbidden list, example |
-| `governance.rules` | Rule files — objects or plain strings | Rules with id, severity, category and the response the client wants agents told; patterns' forbidden lists and components' forbidden usage become rules too |
+| `governance.rules` | JSON rule files (objects or plain strings), or a bullet list under a markdown heading | Rules with id, severity, category and the response the client wants agents told; patterns' forbidden lists and components' forbidden usage become rules too |
 | `governance.checks` | — | Maps Docent's deterministic checks (restricted package, unindexed component, raw color, invalid prop value, compound structure, …) to the client's rule ids, so every finding cites the client's own rule |
 | `tokenSemantics` | Semantic token roles | Token meanings and role groups, the "need → use" decision table, forbidden token usage |
 | `escalation` | — | What each kind of finding leads to: reject, escalate or warn, and who reviews |
+| `specialists` | — | Which specialists this client gets; leave one out when the design system has no data for it |
 
 **Source wins.** Props, variants and exports always come from source. Where a spec disagrees, the contract follows source and records a `spec-drift` gap — for example a required prop the spec forgot to list.
 

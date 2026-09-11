@@ -1,0 +1,12 @@
+/* Generated from tokens.json */
+@theme {
+  --color-brand-orange-400: #DF542E;
+  --color-brand-orange: var(--color-brand-orange-400);
+  --color-brand-teal: #02A5A6;
+  --color-neutral-white: #FFFFFF;
+  --radius-button: 4px;
+  --text-body: 14px;
+  --text-body--line-height: 18px;
+  --spacing-row: 72px;
+  --spacing-sm: var(--spacing-4);
+}

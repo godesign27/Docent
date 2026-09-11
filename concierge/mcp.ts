@@ -41,8 +41,15 @@ export function createMcpServer(concierge: Concierge, options: { docentVersion: 
       title: `Ask the ${system} design system`,
       description:
         `Single entry point to the ${system} design system. Docent routes the question to the right specialist(s): ` +
-        "components (props, variants, imports, structure), tokens (colors, spacing, typography, theme values and which token to use), " +
-        "patterns (which component to use and how to compose a flow) and governance (whether something is allowed; pass code to check it before shipping). " +
+        [
+          concierge.domains.includes("components") && "components (props, variants, imports, structure)",
+          concierge.domains.includes("tokens") && "tokens (colors, spacing, typography, theme values and which token to use)",
+          concierge.domains.includes("patterns") && "patterns (which component to use and how to compose a flow)",
+          concierge.domains.includes("governance") && "governance (whether something is allowed; pass code to check it before shipping)",
+        ]
+          .filter(Boolean)
+          .join(", ") +
+        ". " +
         "Every answer is validated against the design-system contract and logged. " +
         'Statuses: "answered"; "clarification-needed" (ask again naming one of the options); "not-found" (it does not exist here, do not invent it); ' +
         '"rejected" (the rules disallow it, do not proceed); "escalated" (a human must decide first, poll check_review).',

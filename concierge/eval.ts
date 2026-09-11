@@ -37,10 +37,16 @@ export interface EvalResult {
   response: DocentResponse;
 }
 
-export async function runEval(contract: Contract, policy: EscalationPolicy, batch: EvalCase[], docentVersion: string): Promise<EvalResult[]> {
+export async function runEval(
+  contract: Contract,
+  policy: EscalationPolicy,
+  batch: EvalCase[],
+  docentVersion: string,
+  domains?: Domain[],
+): Promise<EvalResult[]> {
   // In-memory audit and reviews: evaluation must not pollute a client's real logs or review queue.
   const audit = { entries: [] as AuditEntry[], record(e: AuditEntry) { this.entries.push(e); } };
-  const concierge = new Concierge({ contract, audit, policy, docentVersion, reviews: new MemoryReviewStore() });
+  const concierge = new Concierge({ contract, audit, policy, docentVersion, reviews: new MemoryReviewStore(), ...(domains ? { domains } : {}) });
   const results: EvalResult[] = [];
 
   for (const c of batch) {

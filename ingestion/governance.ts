@@ -14,6 +14,7 @@ import {
   type TokenContract,
   type TokenGuidance,
 } from "../schema/contract.js";
+import { normalizeKey, parseMarkdown } from "./docs.js";
 import { findFiles, lineOf, readText } from "./files.js";
 import type { GapCollector } from "./gaps.js";
 import { getPath } from "./manifest.js";
@@ -111,8 +112,18 @@ export async function loadGovernance(
   authored: { patterns: PatternContract[]; components: ComponentContract[] },
 ): Promise<Governance> {
   const rules: GovernanceRule[] = [];
+  const counters = new Map<string, number>();
+  const nextId = (category: string) => {
+    const n = (counters.get(category) ?? 0) + 1;
+    counters.set(category, n);
+    return `${category}-${n}`;
+  };
   for (const source of config?.rules ?? []) {
     for (const file of await findFiles(ctx.root, source.include)) {
+      if (/\.mdx?$/i.test(file)) {
+        rules.push(...markdownRules(ctx, file, source.heading, source.category, source.severity, nextId));
+        continue;
+      }
       const json = readJson(ctx, file);
       if (!json) continue;
       const items = source.itemsPath ? getPath(json.data, source.itemsPath) : json.data;
@@ -132,7 +143,7 @@ export async function loadGovernance(
         const field = (path: string | undefined) => (typeof item === "object" && item && path ? getPath(item, path) : undefined);
         const text = typeof item === "string" ? item.trim() : str(field(f.rule));
         if (!text) return;
-        const id = str(field(f.id)) ?? `${source.category}-${index + 1}`;
+        const id = str(field(f.id)) ?? nextId(source.category);
         const declared = str(field(f.severity))?.toLowerCase();
         const severity = RuleSeverity.safeParse(declared).success ? (declared as GovernanceRule["severity"]) : source.severity;
         const anchor = json.text.indexOf(typeof item === "string" ? JSON.stringify(item) : JSON.stringify(id));
@@ -196,6 +207,42 @@ export async function loadGovernance(
     approvedImportPrefixes: config?.approvedImports ?? [],
     restrictedPackages: config?.restrictedPackages ?? [],
   };
+}
+
+/** Rules kept as a bullet list under a markdown heading. Each bullet becomes one rule. */
+function markdownRules(
+  ctx: Context,
+  file: string,
+  heading: string | undefined,
+  category: string,
+  severity: GovernanceRule["severity"],
+  nextId: (category: string) => string,
+): GovernanceRule[] {
+  ctx.scanned.add(file);
+  const text = readText(ctx.root, file);
+  const md = parseMarkdown(file, text);
+  const sections = heading ? md.sections.filter((s) => normalizeKey(s.heading) === normalizeKey(heading)) : [{ heading: "", level: 0, content: text }];
+  if (heading && sections.length === 0) {
+    ctx.gaps.add({
+      severity: "warning",
+      kind: "unresolvable-config-value",
+      subject: { type: "source", id: file },
+      detail: heading,
+      message: `${file} has no "${heading}" heading, so no rules were read from it.`,
+      location: { file },
+    });
+  }
+  return sections.flatMap((section) =>
+    section.content
+      .split("\n")
+      .map((line) => line.match(/^\s{0,3}(?:[-*+]|\d+\.)\s+(.+)$/)?.[1])
+      .filter((item): item is string => Boolean(item))
+      .map((item) => {
+        const rule = item.replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1").trim();
+        const offset = text.indexOf(item);
+        return { id: nextId(category), rule, severity, category, response: null, reference: file, source: { file, line: lineOf(text, Math.max(0, offset)) } };
+      }),
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -14,3 +14,10 @@ logs/*
 
 .env
 .env.*
+
+# Client configs stay in the clone that serves that client. The core repo only
+# carries the template and the reference client (GO Design's own design system).
+config/clients/*
+!config/clients/_template.yaml
+!config/clients/agentic-ui-shadcn.yaml
+!config/clients/agentic-ui-shadcn.eval.yaml

@@ -4,6 +4,9 @@ client:
   id: acme            # lowercase, digits, dashes; names the contracts/ and logs/ folders
   name: Acme Design System
 
+# Which specialists this client gets. Leave out any the design system has no data for.
+# specialists: [components, tokens, patterns, governance]
+
 source:
   # Either a git repo Docent clones (shallow, read-only)…
   type: git
@@ -30,6 +33,10 @@ ingestion:
       modes:
         ":root": light
         "[data-theme='dark']": dark
+    # Tailwind v4: map @theme too; its variables become utilities (--color-brand -> bg-brand).
+    # - extractor: css-variables
+    #   include: ["src/styles/tokens.css", "src/index.css"]
+    #   modes: { "@theme": base, ":root": base, ".dark": dark }
     # - extractor: tailwind-theme
     #   include: ["tailwind.config.{js,ts,cjs,mjs}"]
     # - extractor: dtcg-json            # W3C design tokens / Style Dictionary JSON
@@ -70,6 +77,10 @@ ingestion:
   #       itemsPath: forbidden
   #       category: forbidden
   #       fields: { id: id, rule: rule, severity: severity, response: agentResponse }
+  #     - include: ["AGENTS.md"]            # or rules kept as a markdown bullet list
+  #       heading: Rules of the road
+  #       category: rules
+  #       severity: high                     # rule ids become rules-1, rules-2, ...
   #   approvedImports: ["@/components/", "@/lib/"]
   #   restrictedPackages: ["@mui/*", "antd", "@chakra-ui/*"]
   #   checks:

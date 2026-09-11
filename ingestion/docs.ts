@@ -42,7 +42,9 @@ export function findComponentDocs(files: MarkdownFile[], candidates: string[]): 
       continue;
     }
     for (const section of md.sections) {
-      if (keys.has(normalizeKey(section.heading))) {
+      // Headings may name the file rather than the component: "`button.tsx`".
+      const heading = section.heading.replace(/\.(tsx|jsx|ts|js|vue|svelte)\b/gi, "");
+      if (keys.has(normalizeKey(heading))) {
         docs.push({ file: md.file, heading: section.heading, content: section.content });
       }
     }

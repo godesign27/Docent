@@ -15,9 +15,11 @@ const THRESHOLD = 3;
 
 export interface RoutingResult extends Routing {
   clarification: { question: string; options: ClarificationOption[] } | null;
+  /** Specialists the evidence pointed at that this client does not have. */
+  unavailable: Domain[];
 }
 
-export function route(index: ContractIndex, input: AskInput, m: Mentions): RoutingResult {
+export function route(index: ContractIndex, input: AskInput, m: Mentions, enabled: Domain[] = DOMAINS): RoutingResult {
   const signals: Routing["signals"] = [];
   const scores: Record<Domain, number> = { components: 0, tokens: 0, patterns: 0, governance: 0 };
   const add = (domain: Domain, points: number, signal: string, detail: string) => {
@@ -65,28 +67,34 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions): Routi
     if (strong.length) add("governance", 2, "rule-wording", strong.slice(0, 3).map((r) => r.rule.id).join(", "));
   }
 
+  const isEnabled = (d: Domain) => enabled.includes(d);
+  const split = (wanted: Domain[]) => ({ domains: wanted.filter(isEnabled), unavailable: wanted.filter((d) => !isEnabled(d)) });
+
   // An explicit domain wins, but submitted code always gets a governance check.
   if (input.domain) {
-    const domains: Domain[] = input.domain === "governance" || !input.code ? [input.domain] : [input.domain, "governance"];
-    return { domains, scores, signals, reason: `The caller asked for the ${input.domain} specialist.`, clarification: null };
+    const wanted: Domain[] = input.domain === "governance" || !input.code ? [input.domain] : [input.domain, "governance"];
+    return { ...split(wanted), scores, signals, reason: `The caller asked for the ${input.domain} specialist.`, clarification: null };
   }
 
-  let domains = DOMAINS.filter((d) => scores[d] >= THRESHOLD);
-  if (domains.length) {
-    return { domains, scores, signals, reason: `Routed on evidence: ${domains.map((d) => `${d} ${scores[d]}`).join(", ")}.`, clarification: null };
+  const evidenced = DOMAINS.filter((d) => scores[d] >= THRESHOLD);
+  if (evidenced.length) {
+    const { domains, unavailable } = split(evidenced);
+    const reason = `Routed on evidence: ${evidenced.map((d) => `${d} ${scores[d]}`).join(", ")}.${unavailable.length ? ` Not enabled for this client: ${unavailable.join(", ")}.` : ""}`;
+    return { domains, unavailable, scores, signals, reason, clarification: null };
   }
 
-  const top = Math.max(...DOMAINS.map((d) => scores[d]));
-  const leaders = DOMAINS.filter((d) => scores[d] === top);
+  const top = Math.max(...DOMAINS.filter(isEnabled).map((d) => scores[d]));
+  const leaders = DOMAINS.filter((d) => isEnabled(d) && scores[d] === top);
   if (top > 0 && leaders.length === 1) {
-    return { domains: leaders, scores, signals, reason: `Weak evidence, but only ${leaders[0]} has any (${top}).`, clarification: null };
+    return { domains: leaders, unavailable: [], scores, signals, reason: `Weak evidence, but only ${leaders[0]} has any (${top}).`, clarification: null };
   }
+  let domains: Domain[];
 
   // No usable signal: search what the design system contains before asking.
   const hits = {
-    patterns: searchPatterns(index.contract, input.question, 3),
-    components: search(index.contract, input.question, 3),
-    tokens: searchTokens(index.contract, input.question, 3),
+    patterns: isEnabled("patterns") ? searchPatterns(index.contract, input.question, 3) : [],
+    components: isEnabled("components") ? search(index.contract, input.question, 3) : [],
+    tokens: isEnabled("tokens") ? searchTokens(index.contract, input.question, 3) : [],
   };
   if (hits.patterns.length) add("patterns", 0, "catalog-search", hits.patterns.map((p) => p.pattern.id).join(", "));
   if (hits.components.length) add("components", 0, "catalog-search", hits.components.map((c) => c.id).join(", "));
@@ -94,7 +102,7 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions): Routi
 
   const strongPattern = hits.patterns[0] && hits.patterns[0].score >= 5 && (hits.patterns[1]?.score ?? 0) < hits.patterns[0].score;
   if (strongPattern) {
-    return { domains: ["patterns"], scores, signals, reason: `No explicit signal; the question closely matches the ${hits.patterns[0]!.pattern.id} pattern.`, clarification: null };
+    return { domains: ["patterns"], unavailable: [], scores, signals, reason: `No explicit signal; the question closely matches the ${hits.patterns[0]!.pattern.id} pattern.`, clarification: null };
   }
   // A single overlapping word ("page") is not evidence; routing on search alone needs at least two.
   const asked = new Set(terms(input.question));
@@ -103,7 +111,7 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions): Routi
   const withHits = (Object.keys(hits) as (keyof typeof hits)[]).filter((k) => hits[k].length > 0);
   if (withHits.length === 1 && (withHits[0] === "patterns" || (withHits[0] === "components" && strongComponent))) {
     domains = [withHits[0]!];
-    return { domains, scores, signals, reason: `No explicit signal; only ${withHits[0]} had matches in the design system.`, clarification: null };
+    return { domains, unavailable: [], scores, signals, reason: `No explicit signal; only ${withHits[0]} had matches in the design system.`, clarification: null };
   }
 
   const options: ClarificationOption[] = [
@@ -113,6 +121,7 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions): Routi
   ];
   return {
     domains: [],
+    unavailable: [],
     scores,
     signals,
     reason: withHits.length ? "Matches in more than one area and nothing to choose between them." : "No evidence for any specialist.",
@@ -122,12 +131,14 @@ export function route(index: ContractIndex, input: AskInput, m: Mentions): Routi
         : "Docent answers questions about this design system's components, tokens, patterns and rules. Which is this about? Ask again naming a component, token or pattern, or set domain.",
       options: options.length
         ? options
-        : [
-            { kind: "domain", id: "components", name: "Components", description: "Props, variants, imports and structure of a component" },
-            { kind: "domain", id: "tokens", name: "Tokens & foundations", description: "Colors, spacing, typography and theme values" },
-            { kind: "domain", id: "patterns", name: "Patterns & usage", description: "Which component to use and how to compose a flow" },
-            { kind: "domain", id: "governance", name: "Governance", description: "Whether something is allowed, and checking code before it ships" },
-          ],
+        : (
+            [
+              { kind: "domain", id: "components", name: "Components", description: "Props, variants, imports and structure of a component" },
+              { kind: "domain", id: "tokens", name: "Tokens & foundations", description: "Colors, spacing, typography and theme values" },
+              { kind: "domain", id: "patterns", name: "Patterns & usage", description: "Which component to use and how to compose a flow" },
+              { kind: "domain", id: "governance", name: "Governance", description: "Whether something is allowed, and checking code before it ships" },
+            ] as ClarificationOption[]
+          ).filter((o) => isEnabled(o.id as Domain)),
     },
   };
 }

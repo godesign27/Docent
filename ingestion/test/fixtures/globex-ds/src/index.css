@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-surface: var(--surface);
+}
+
+:root {
+  --primary: var(--color-brand-orange);
+  --surface: var(--color-neutral-white);
+}
+
+.dark {
+  --surface: #1c2021;
+}

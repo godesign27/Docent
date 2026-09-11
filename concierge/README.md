@@ -19,6 +19,7 @@ MCP tool ask  →  Concierge.ask()
 | `router.ts` | Evidence-based routing with recorded signals and scores. |
 | `concierge.ts` | Merging, governance outcome, review creation, validation gate, audit record. Runtime-agnostic. |
 | `eval.ts` | Runs a labelled batch of requests and compares routing and outcomes. |
+| `isolation.ts` | Checks that clients' configs, contracts, snapshots, logs and reviews stay separate, on disk and at runtime (`docent isolation`). |
 | `validate.ts` | Independent checks. `ask`: every component, part, prop, value, variant, import path, rule and related id exists in the contract. Fetches: every file is recorded in the contract, re-hashed to match the snapshot, and within the request's scope (recomputed from the request, not the response); packages and versions match. |
 | `mcp.ts` | MCP server exposing read-only `ask`, `get_component` and `get_foundation` tools. Transport-agnostic. |
 | `node.ts` | Node adapters: loads `contracts/<client>/contract.json` and the hash-verified `sources.json`, appends to `logs/<client>/requests.jsonl`, keeps reviews as an append-only event log in `logs/<client>/reviews.jsonl`. A Workers deployment swaps these for KV/R2/D1 equivalents. |

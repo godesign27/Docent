@@ -100,6 +100,8 @@ export interface ConciergeOptions {
   docentVersion: string;
   /** Escalation policy from the client config. Defaults mirror a typical severity gate. */
   policy?: EscalationPolicy;
+  /** Specialists enabled for this client (config `specialists`). Defaults to all four. */
+  domains?: Domain[];
   reviews?: ReviewStore;
   /** Source snapshot from ingestion. Without it, get_component and get_foundation return errors. */
   sources?: Record<string, string>;
@@ -117,6 +119,7 @@ export class Concierge {
   private readonly reviews: ReviewStore;
   private readonly index: ContractIndex;
   private readonly specialists: Record<Domain, Specialist>;
+  readonly domains: Domain[];
   private readonly distributor: Distributor | null;
   private readonly docentVersion: string;
 
@@ -126,6 +129,7 @@ export class Concierge {
     this.docentVersion = options.docentVersion;
     this.policy = options.policy ?? EscalationPolicy.parse({});
     this.reviews = options.reviews ?? new MemoryReviewStore();
+    this.domains = options.domains ?? ["components", "tokens", "patterns", "governance"];
     this.index = new ContractIndex(options.contract);
     this.specialists = {
       components: createComponentsSpecialist(options.contract),
@@ -255,8 +259,15 @@ export class Concierge {
   private merge(requestId: string, input: AskInput): DocentResponse {
     const base = this.emptyResponse(requestId);
     const mentions = extractMentions(this.index, input);
-    const routing = route(this.index, input, mentions);
+    const routing = route(this.index, input, mentions, this.domains);
     const routingRecord = { domains: routing.domains, scores: routing.scores, signals: routing.signals, reason: routing.reason };
+    const unavailableNotes = routing.unavailable.map(
+      (d) => `This looks like a ${d} question, but ${this.contract.client.name} has no ${d} specialist in Docent, so that part is not answered.`,
+    );
+
+    if (routing.domains.length === 0 && routing.unavailable.length > 0) {
+      return { ...base, routing: routingRecord, status: "not-found", message: unavailableNotes.join(" "), notes: unavailableNotes, validation: PENDING };
+    }
 
     if (routing.clarification) {
       return { ...base, routing: routingRecord, status: "clarification-needed", message: routing.clarification.question, clarification: routing.clarification, validation: PENDING };
@@ -275,7 +286,7 @@ export class Concierge {
       merged.tokenForbidden = s.tokenForbidden?.length ? s.tokenForbidden : merged.tokenForbidden;
       merged.patterns = uniqueBy([...merged.patterns, ...(s.patterns ?? [])], (p) => p.id);
       merged.usage = uniqueBy([...merged.usage, ...(s.usage ?? [])], (u) => u.component.id);
-      merged.notes = uniqueBy([...merged.notes, ...(s.notes ?? [])], (n) => n);
+      merged.notes = uniqueBy([...merged.notes, ...(s.notes ?? []), ...unavailableNotes], (n) => n);
       merged.inventory = s.inventory ?? merged.inventory;
       merged.governance = s.governance ?? merged.governance;
     }
