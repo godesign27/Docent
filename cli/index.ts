@@ -245,7 +245,15 @@ async function main(): Promise<number> {
     const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: DOCENT_ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
     const out = resolve(values.out ?? join(DOCENT_ROOT, ".deploy", id));
     const result = bundleClient({ root: DOCENT_ROOT, clientId: id, allClientIds: clientIds(), trackedFiles: tracked, out, app: values.app, region: values.region });
+    // The bundle is built from tracked files: anything uncommitted would be missing from the image.
+    const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], { cwd: DOCENT_ROOT, encoding: "utf8" })
+      .split("\0")
+      .filter((f) => f && !f.startsWith(".deploy/") && !/^(contracts|logs|config\/clients)\//.test(f));
     console.log(`✔ Bundled ${config.client.name} into ${out}: ${result.files.length} files, no other client's config, contract or logs.`);
+    if (untracked.length) {
+      console.log(`  ! ${untracked.length} file(s) are not committed and were left out: ${untracked.slice(0, 5).join(", ")}${untracked.length > 5 ? ", …" : ""}`);
+      console.log("    Commit them first, or the deployed server will be missing them.");
+    }
     console.log(`  fly.toml ${result.flyToml === "kept" ? "kept from the previous bundle" : "written from fly.toml.example"}.`);
     console.log(`\nDeploy from that folder (see docs/ONBOARDING.md step 8):\n  cd ${out}\n  fly deploy`);
     return 0;

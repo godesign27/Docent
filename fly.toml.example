@@ -6,6 +6,12 @@
 app = "docent-CLIENT-ID"
 primary_region = "iad"
 
+# Docent runs through tsx and holds the contract and source snapshot in memory: about 400 MB
+# at startup. Fly's default 256 MB machine is killed before it listens.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
 [env]
   DOCENT_CLIENT = "CLIENT-ID"
   PORT = "8080"

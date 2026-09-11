@@ -194,6 +194,8 @@ One deployed instance serves one client over HTTPS, protected by a bearer token.
 npm run docent -- bundle --client <client-id> --app docent-<client-id> --region <fly-region>
 ```
 
+A bundle is built from **committed** files plus that client's contract, so commit your work first; `bundle` warns when anything is uncommitted. Give the machine **1 GB**: Docent runs through `tsx` and holds the contract and snapshot in memory (about 400 MB at startup), so a 256 MB machine is killed before it listens. `fly.toml.example` sets this.
+
 On Fly.io, from the folder it prints (`.deploy/<client-id>`), after step 3:
 
 ```bash
@@ -271,3 +273,6 @@ Then restart the local server, or `fly deploy` again. In CI, `npm run ingest -- 
 | Every governance answer is a warning | No rule has a severity of high or critical, or checks aren't mapped to rules. See step 5, including `agreedRules`. |
 | `No contract for <client>` when serving | Run `ingest` or `onboard` first. |
 | `Refusing to serve on 0.0.0.0 without a token` | Set `DOCENT_TOKEN` (24+ characters) or bind to 127.0.0.1. |
+| Deployed machine restarts every two minutes, logs show `Out of memory: Killed process` | The machine is too small. `fly scale memory 1024`, and keep `[[vm]] memory = "1gb"` in `fly.toml`. |
+| Deployed server exits at startup with `ERR_MODULE_NOT_FOUND` | A source file wasn't committed when you bundled. Commit it, rerun `bundle`, redeploy. |
+| `flyctl` returns `unauthorized` or "request canceled" on machine commands | Its background agent isn't running: `fly agent restart`, then `fly doctor`. |
