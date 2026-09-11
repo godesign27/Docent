@@ -1,7 +1,7 @@
-# Copy to fly.toml in the clone that serves this client, then:
-#   fly launch --no-deploy --copy-config
-#   fly volumes create docent_logs --size 1
-#   fly secrets set DOCENT_TOKEN=$(openssl rand -hex 32)
+# `npm run docent -- bundle --client <id>` writes this as fly.toml in .deploy/<id>, then from there:
+#   fly apps create docent-<id>
+#   fly volumes create docent_logs --size 1 --region <region> --app docent-<id>
+#   fly secrets set DOCENT_TOKEN=$(openssl rand -hex 32) --stage --app docent-<id>
 #   fly deploy
 app = "docent-CLIENT-ID"
 primary_region = "iad"

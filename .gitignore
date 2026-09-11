@@ -5,6 +5,9 @@ node_modules/
 # Local clones of client repos made during ingestion
 .docent/
 
+# Per-client deploy folders from `docent bundle`
+.deploy/
+
 # Generated per-client output. Client contracts and audit logs never live in
 # the core repo — that keeps one client's data out of every other clone.
 contracts/*

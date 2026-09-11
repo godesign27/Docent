@@ -188,16 +188,23 @@ Open a new agent chat and ask: *Using only the docent MCP tools, what variants d
 
 One deployed instance serves one client over HTTPS, protected by a bearer token. The image contains the client's config, contract and source snapshot, so keep it in a private registry.
 
-On Fly.io, from the client's Docent clone after step 3:
+**Always deploy from a bundle.** A container build uploads its whole folder. Deploying from a clone that serves several clients would put every client's contract in the image, and on Fly's builders. `bundle` builds a folder with Docent plus this one client, and checks that nothing of another client got in:
 
 ```bash
-cp fly.toml.example fly.toml    # set app name and DOCENT_CLIENT
-fly launch --no-deploy --copy-config
-fly volumes create docent_logs --size 1
-fly secrets set DOCENT_TOKEN=$(openssl rand -hex 32)
-fly deploy
-curl https://<app>.fly.dev/healthz
+npm run docent -- bundle --client <client-id> --app docent-<client-id> --region <fly-region>
 ```
+
+On Fly.io, from the folder it prints (`.deploy/<client-id>`), after step 3:
+
+```bash
+fly apps create docent-<client-id>
+fly volumes create docent_logs --size 1 --region <fly-region> --app docent-<client-id>
+fly secrets set DOCENT_TOKEN=$(openssl rand -hex 32) --stage --app docent-<client-id>
+fly deploy
+curl https://docent-<client-id>.fly.dev/healthz
+```
+
+Rerun `bundle` and `fly deploy` after every re-ingest. The bundle keeps its `fly.toml` between runs.
 
 Share the token with the team through the client's secret manager. Agents connect to `https://<app>.fly.dev/mcp` with the header `Authorization: Bearer <token>`:
 

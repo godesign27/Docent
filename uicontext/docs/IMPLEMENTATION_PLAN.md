@@ -2,6 +2,18 @@
 
 How the [PRD](PRD.md) gets built, phase by phase. Each phase ends with an exit criterion that is checked before the next phase starts.
 
+## Where the agent runs in the handoff flow
+
+```
+Jira story ──▶ design (prototype) ──▶ intent-ux.md ──▶ UIContext agent ──▶ uicontext.md ──▶ implementation plan
+(before design)                       (after design,     (this agent)        (reviewed by UX
+                                       separate prompt)                       and tech lead)
+```
+
+The story exists before design. `intent-ux.md` and `uicontext.md` are both outputs once the design is done. `intent-ux.md` comes first, from its own lighter prompt (not this agent, per the PRD's non-goals), and records the why, who and scope the design settled. The agent then reads the story, the finished prototype and that `intent-ux.md`.
+
+The Docent-TestSite pilot's story is `Docent-TestSite/handoff/jira/DTS-101.md`. Stories are markdown with YAML frontmatter mirroring Jira fields, so a Jira API fetch (Phase 4) can produce the same shape.
+
 ## The one design decision everything follows from
 
 The PRD's hard rule is that no component, token or pattern name reaches the file unless Docent has confirmed it. A prompt can't guarantee that: a model told "don't invent names" still sometimes does. So the agent is not a model writing markdown. It is a pipeline in which **code** holds every design-system fact and **the model** only writes what code cannot:

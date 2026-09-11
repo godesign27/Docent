@@ -57,7 +57,7 @@ Every command ran in under 2 seconds, and the clone of the client repo took abou
 | 6 | 6 | **An invalid eval file printed a raw validation dump** (`"path": [24, "expect", "outcome"]`), and the runbook didn't list the `outcome` values. | The error names the case and field. The runbook lists outcome values and notes that governance cases fail until step 5. |
 | 7 | 3 | `onboard`'s `claude mcp add` line used `node` while the Cursor line used the absolute path. The gap report listed all 91 resolved gaps inline. | Both use the absolute path. Change lists are capped at 20 entries. |
 
-Contract schema moved to 0.5.0 (new gap kind, `origin` on rules, `css-usage` type evidence, `ambiguous` on deliveries). All 113 tests pass, including 10 new regression tests for these issues. Evals for the other clients are unchanged: agentic-ui-shadcn 45/45, Coretechs 15/15.
+Contract schema moved to 0.5.0 (new gap kind, `origin` on rules, `css-usage` type evidence, `ambiguous` on deliveries). All 113 tests pass, including 10 new regression tests for these issues. Evals for the other clients are unchanged: agentic-ui-shadcn 45/45, and 15/15 for a second, private client.
 
 ## Not changed
 

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -14,6 +15,7 @@ import { JsonlAuditLog, JsonlReviewStore, LiveConcierge, loadContract, loadSourc
 import { DOCENT_VERSION, ingest } from "../ingestion/ingest.js";
 import { consoleSummary, writeOutputs } from "../ingestion/report.js";
 import { resolveSource } from "../ingestion/source.js";
+import { bundleClient } from "../onboarding/bundle.js";
 import { detectRepo } from "../onboarding/detect.js";
 import { renderConfig, renderEval, slugify, starterEval, titleCase, type ClientIdentity } from "../onboarding/render.js";
 
@@ -31,6 +33,7 @@ Usage:
   docent eval   (--client <id> | --config <path>) [--file <batch.yaml>] [--verbose]
   docent check-config (--client <id> | --config <path>)
   docent isolation
+  docent bundle (--client <id> | --config <path>) [--out <dir>] [--app <fly-app>] [--region <fly-region>]
   docent list-clients
 
 Commands:
@@ -46,6 +49,7 @@ Commands:
   eval           Run a labelled batch of requests and report routing and outcome accuracy
   check-config   Validate a client config without ingesting
   isolation      Check that clients' contracts, snapshots, logs and reviews stay separate
+  bundle         Build a deploy folder with Docent plus this client's config and contract only (default .deploy/<id>)
   list-clients   List configs in config/clients/
 
 Options:
@@ -112,6 +116,9 @@ async function main(): Promise<number> {
       foundation: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
       quiet: { type: "boolean", default: false },
+      out: { type: "string" },
+      app: { type: "string" },
+      region: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -231,6 +238,18 @@ async function main(): Promise<number> {
   }
 
   const { config, path } = loadConfig(resolveConfigPath(values));
+
+  if (command === "bundle") {
+    const id = config.client.id;
+    loadSources(config, loadContract(config)); // refuse to bundle a contract that doesn't load
+    const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: DOCENT_ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
+    const out = resolve(values.out ?? join(DOCENT_ROOT, ".deploy", id));
+    const result = bundleClient({ root: DOCENT_ROOT, clientId: id, allClientIds: clientIds(), trackedFiles: tracked, out, app: values.app, region: values.region });
+    console.log(`✔ Bundled ${config.client.name} into ${out}: ${result.files.length} files, no other client's config, contract or logs.`);
+    console.log(`  fly.toml ${result.flyToml === "kept" ? "kept from the previous bundle" : "written from fly.toml.example"}.`);
+    console.log(`\nDeploy from that folder (see docs/ONBOARDING.md step 8):\n  cd ${out}\n  fly deploy`);
+    return 0;
+  }
 
   if (command === "check-config") {
     console.log(`✔ ${path} is valid (client "${config.client.id}")`);
