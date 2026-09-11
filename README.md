@@ -48,10 +48,9 @@ npm run ingest -- --client agentic-ui-shadcn
 
 That clones the client repo (shallow, read-only) into `.docent/sources/`, and writes:
 
-- `contracts/<client>/sources.json` — hashed snapshot of every file Docent may deliver to agents (components, their support files, the foundation)
-
 - `contracts/<client>/contract.json` — the normalized contract (schema: [`schema/contract.ts`](schema/contract.ts), JSON Schema: [`schema/contract.schema.json`](schema/contract.schema.json))
 - `contracts/<client>/gaps.md` — a readable report of everything Docent could not establish, grouped by severity, plus what changed since the last run
+- `contracts/<client>/sources.json` — hashed snapshot of every file Docent may deliver to agents (components, their support files, the foundation)
 - `logs/<client>/ingestion.jsonl` — one audit entry per run
 
 ### Onboard a new client
