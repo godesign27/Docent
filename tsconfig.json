@@ -14,6 +14,6 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["schema", "config", "ingestion", "concierge", "specialists", "onboarding", "cli", "bin"],
+  "include": ["schema", "config", "ingestion", "concierge", "specialists", "onboarding", "cli", "bin", "uicontext"],
   "exclude": ["node_modules", "**/fixtures/**"]
 }

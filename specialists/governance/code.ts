@@ -139,8 +139,10 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
         }
         const structure = ds.component.guidance?.structure as { parts?: { name?: string; parent?: string }[] } | null | undefined;
         const declared = structure?.parts?.find((p) => p.name === ds.exportName);
-        if (declared?.parent && !ancestors.includes(declared.parent)) {
-          add("compound-structure", `<${tag}> must be inside <${declared.parent}>`, opening);
+        // Specs may allow several parents: "TableHeader | TableBody | TableFooter".
+        const parents = declared?.parent?.split(/\s*(?:\||,|\bor\b)\s*/).map((p) => p.replace(/^<|\/?>$/g, "").trim()).filter(Boolean) ?? [];
+        if (parents.length && !parents.some((parent) => ancestors.includes(parent))) {
+          add("compound-structure", `<${tag}> must be inside <${declared!.parent}>`, opening);
         }
       } else if (/^[A-Z]/.test(root) && !otherImports.has(root) && !locals.has(root) && hasImports) {
         const known = index.components.lookup(root)[0];

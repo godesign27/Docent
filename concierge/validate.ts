@@ -213,7 +213,8 @@ export async function validateFetch(
       .map((name) => index.get(name))
       .filter((c): c is ComponentContract => Boolean(c) && (!inventory || c!.manifest !== null))
       .map((c) => c.id);
-    const skip = new Set((request.input.installed ?? []).map((i) => index.get(i)?.id).filter((id): id is string => Boolean(id)));
+    // Same reading as the distributor: a recorded file path skips that file only; a component name skips the component.
+    const skip = new Set((request.input.installed ?? []).filter((i) => !recorded.has(i)).map((i) => index.get(i)?.id).filter((id): id is string => Boolean(id)));
     const closure = installClosure(contract, [...new Set(roots)], skip);
     expectedComponents = closure.map((c) => c.id);
     for (const { id } of closure) {

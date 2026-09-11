@@ -13,6 +13,8 @@ import { Concierge, MemoryReviewStore, type AuditEntry, type CallerInfo } from "
 import { runEval, type EvalCase } from "../eval.js";
 import { JsonlReviewStore } from "../node.js";
 import { validateResponse } from "../validate.js";
+import { ContractIndex } from "../../specialists/context.js";
+import { checkCode } from "../../specialists/governance/code.js";
 
 const caller: CallerInfo = { name: "test", client: null, transport: "test" };
 let contract: Contract;
@@ -221,6 +223,16 @@ export function Page() {
     expect(r.status).toBe("rejected");
     expect(r.governance!.checksRun).toContain("compound-structure");
     expect(r.governance!.notEvaluated.join(" ")).toMatch(/Accessibility/);
+  });
+
+  it("accepts any of the parents a spec allows", () => {
+    const allowing = structuredClone(contract);
+    const dialog = allowing.components.find((c) => c.id === "dialog")!;
+    (dialog.guidance!.structure as { parts: { parent: string }[] }).parts[0]!.parent = "Sheet | Dialog";
+    const code = (wrapper: string) => `import { Dialog, DialogContent } from "@/components/dialog"\nexport const X = () => <${wrapper}><DialogContent /></${wrapper}>\n`;
+    const structural = (c: string) => checkCode(c, new ContractIndex(allowing)).findings.filter((f) => f.check === "compound-structure");
+    expect(structural(code("Dialog"))).toEqual([]);
+    expect(structural(code("section"))).toHaveLength(1);
   });
 
   it("flags a local component that duplicates an indexed one", async () => {

@@ -12,6 +12,8 @@ export type Resolution =
   | { kind: "inventory" };
 
 const MAX_WEAK_MATCHES = 3;
+/** `hover:bg-primary` is a utility class with a variant, not a namespaced component id like `ui:button`. */
+const TAILWIND_VARIANT = /^(hover|focus|active|disabled|visited|checked|first|last|odd|even|group|peer|dark|light|sm|md|lg|xl|motion|print|rtl|ltr|open|placeholder|before|after|file|marker|selection|aria|data|supports|focus-visible|focus-within|invalid|required|read-only)$/;
 export const INVENTORY_QUESTION = /\b(list (all|the|every)?\s*components?|component (inventory|list|catalog)|(what|which) components (are there|exist|are available|can i use)|all (available )?components)\b/i;
 /** PascalCase words that are tooling, not components someone could be asking for. */
 const NOT_COMPONENT_NAMES = new Set(["typescript", "javascript", "github", "nextjs", "reactdom", "tailwindcss", "variantprops", "componentprops", "forwardref", "radixui", "shadcnui"]);
@@ -147,7 +149,8 @@ export function findMentions(index: ComponentIndex, question: string) {
     if (matched) continue;
 
     const token = tokens[i]!;
-    const looksLikeComponent = /^[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+$/.test(token) || /^[a-z]+:[a-z0-9-]+$/.test(token) || backticked.has(token);
+    const namespaced = /^[a-z]+:[a-z0-9-]+$/.test(token) && !TAILWIND_VARIANT.test(token.split(":")[0]!);
+    const looksLikeComponent = /^[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+$/.test(token) || namespaced || backticked.has(token);
     if (looksLikeComponent && !NOT_COMPONENT_NAMES.has(normalizeKey(token)) && !unresolved.includes(token)) unresolved.push(token);
     i += 1;
   }

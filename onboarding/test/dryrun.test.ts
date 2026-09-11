@@ -269,6 +269,12 @@ describe("serving it", () => {
     ]);
   });
 
+  it("doesn't read a utility class with a variant as a component name", async () => {
+    const r = await concierge().ask({ question: "Can I use hover:bg-primary on the card?" }, caller);
+    expect(r.unresolved).not.toContain("hover:bg-primary");
+    expect(r.governance?.findings.some((f) => f.check === "unindexed-component") ?? false).toBe(false);
+  });
+
   it("audits code without opening a review", async () => {
     const reviews = new MemoryReviewStore();
     const c = new Concierge({ contract: built.contract, sources: built.sources, audit: { record() {} }, policy: config.escalation, domains: config.specialists, reviews, docentVersion: "test" });
@@ -281,6 +287,14 @@ describe("serving it", () => {
     const shipped = await c.ask({ question: "Is this OK to ship?", code }, caller);
     expect(shipped.review?.status).toBe("pending");
     expect(await reviews.list()).toHaveLength(1);
+  });
+
+  it("skips only the file when installed names a component's file", async () => {
+    const r = await concierge().getComponent({ components: ["Button"], installed: ["src/components/ui/button.tsx"] }, caller);
+    expect(r.validation.passed).toBe(true);
+    expect(r.status).toBe("delivered");
+    expect(r.components.map((c) => c.id)).toEqual(["button"]);
+    expect(r.files.map((f) => f.path)).toEqual(["src/lib/utils.ts"]);
   });
 
   it("enforces agreed rules like written ones", async () => {
