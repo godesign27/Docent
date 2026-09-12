@@ -235,6 +235,26 @@ export function Page() {
     expect(structural(code("section"))).toHaveLength(1);
   });
 
+  it("doesn't flag a component alias declared inside a callback", () => {
+    const code = `import { Button } from "@/components/button"
+import { Home } from "lucide-react"
+
+export function Nav({ items }: { items: { icon: typeof Home; label: string }[] }) {
+  return (
+    <div>
+      {items.map((item) => {
+        const Icon = item.icon
+        return <Icon key={item.label} />
+      })}
+      <Button intent="primary">Go</Button>
+    </div>
+  )
+}
+`;
+    const findings = checkCode(code, new ContractIndex(contract)).findings.filter((f) => f.check === "unindexed-component");
+    expect(findings).toEqual([]);
+  });
+
   it("flags a local component that duplicates an indexed one", async () => {
     const r = await check(`export function Dialog() { return <div role="dialog" /> }`);
     expect(r.governance!.findings[0]).toMatchObject({ check: "bespoke-duplicate", ruleId: "INDEXED_ONLY" });

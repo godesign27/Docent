@@ -113,6 +113,15 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
     }
   }
 
+  // Names declared anywhere in the file, including inside callbacks: `const Icon = item.icon` then <Icon />.
+  const declaredAnywhere = new Set<string>(locals);
+  const collectDeclared = (node: ts.Node): void => {
+    if ((ts.isVariableDeclaration(node) || ts.isBindingElement(node) || ts.isParameter(node)) && ts.isIdentifier(node.name)) declaredAnywhere.add(node.name.text);
+    if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name) declaredAnywhere.add(node.name.text);
+    ts.forEachChild(node, collectDeclared);
+  };
+  collectDeclared(sf);
+
   const hasImports = designSystemImports.size + otherImports.size + relativeImports > 0;
   const visit = (node: ts.Node, ancestors: string[]) => {
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -144,7 +153,7 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
         if (parents.length && !parents.some((parent) => ancestors.includes(parent))) {
           add("compound-structure", `<${tag}> must be inside <${declared!.parent}>`, opening);
         }
-      } else if (/^[A-Z]/.test(root) && !otherImports.has(root) && !locals.has(root) && hasImports) {
+      } else if (/^[A-Z]/.test(root) && !otherImports.has(root) && !declaredAnywhere.has(root) && hasImports) {
         const known = index.components.lookup(root)[0];
         add(
           "unindexed-component",
