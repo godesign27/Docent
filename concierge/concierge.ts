@@ -306,7 +306,8 @@ export class Concierge {
     if (merged.status === "clarification-needed") merged.clarification = sections.map(([, s]) => s.clarification).find(Boolean) ?? null;
 
     const governance = sections.find(([d]) => d === "governance")?.[1];
-    const others = sections.filter(([d]) => d !== "governance").map(([, s]) => s.message);
+    // A governance section without a decision (nothing checkable was submitted) still has something to say.
+    const others = sections.filter(([d]) => d !== "governance" || !merged.governance).map(([, s]) => s.message);
     const outcome = merged.governance?.outcome;
 
     if (outcome === "disallowed" || outcome === "needs-review") {

@@ -255,6 +255,17 @@ export function Nav({ items }: { items: { icon: typeof Home; label: string }[] }
     expect(findings).toEqual([]);
   });
 
+  it("refuses to pass code that isn't code", async () => {
+    for (const code of ["PLACEHOLDER", "src/App.tsx", "   ", "// the file above"]) {
+      const r = await check(code);
+      expect(r.status, code).toBe("clarification-needed");
+      expect(r.governance, code).toBeNull();
+      expect(r.message, code).toContain("nothing to check");
+    }
+    expect(checkCode("PLACEHOLDER", new ContractIndex(contract)).checkable).toBe(false);
+    expect(checkCode('import { Button } from "@/components/button"\n', new ContractIndex(contract)).checkable).toBe(true);
+  });
+
   it("flags a local component that duplicates an indexed one", async () => {
     const r = await check(`export function Dialog() { return <div role="dialog" /> }`);
     expect(r.governance!.findings[0]).toMatchObject({ check: "bespoke-duplicate", ruleId: "INDEXED_ONLY" });

@@ -63,6 +63,16 @@ export function createGovernanceSpecialist(contract: Contract, policy: Escalatio
 
       if (input.code) {
         const result = checkCode(input.code, index);
+        // Never answer "no conflict" about something that was never code: a placeholder, a path, an empty string.
+        if (!result.checkable) {
+          return {
+            status: "clarification-needed",
+            message:
+              "There is nothing to check in the submitted code: it has no imports, no JSX and no declarations. " +
+              "Send the file's actual contents, not a placeholder, a path or a summary. Nothing has been checked against the design system's rules.",
+            clarification: { question: "Send the contents of the file you want checked, as code.", options: [] },
+          };
+        }
         CODE_CHECKS.forEach((c) => checksRun.add(c));
         notEvaluated.push(...result.notEvaluated);
         for (const f of result.findings) findings.push(fromCheck(index, f.check, f.evidence, f.line));

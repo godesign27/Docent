@@ -29,7 +29,7 @@ export const CODE_CHECKS: GovernanceCheck[] = [
   "palette-utility",
 ];
 
-export function checkCode(code: string, index: ContractIndex): { findings: CodeFinding[]; notEvaluated: string[] } {
+export function checkCode(code: string, index: ContractIndex): { findings: CodeFinding[]; notEvaluated: string[]; checkable: boolean } {
   const { contract } = index;
   const sf = ts.createSourceFile("proposed.tsx", code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const findings: CodeFinding[] = [];
@@ -190,7 +190,15 @@ export function checkCode(code: string, index: ContractIndex): { findings: CodeF
     if (!findings.some((f) => f.check === check && f.evidence === evidence)) findings.push({ check, evidence, line });
   }
 
-  return { findings: findings.sort((a, b) => a.line - b.line), notEvaluated };
+  // "PLACEHOLDER", a path or an empty string parse fine and produce no findings, which would read as a
+  // clean bill of health. Only real code counts as something that was checked.
+  const checkable = (function look(node: ts.Node): boolean {
+    if (ts.isImportDeclaration(node) || ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) return true;
+    if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isVariableStatement(node) || ts.isExportAssignment(node) || ts.isExportDeclaration(node)) return true;
+    return ts.forEachChild(node, look) ?? false;
+  })(sf);
+
+  return { findings: findings.sort((a, b) => a.line - b.line), notEvaluated, checkable };
 }
 
 function literalValue(initializer: ts.JsxAttribute["initializer"]): string | undefined {
