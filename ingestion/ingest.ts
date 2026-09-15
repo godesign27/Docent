@@ -17,6 +17,7 @@ import { GapCollector } from "./gaps.js";
 import { importPathFromAliases, importPathFromTemplate, loadPathAliases, resolveSpecifier } from "./import-paths.js";
 import { loadManifest, type ManifestEntry } from "./manifest.js";
 import { resolveSource, type ResolvedSource } from "./source.js";
+import { connectorAccess, type ConnectorOptions } from "./repo-connector.js";
 import { attachSpecs, loadSpecs } from "./specs.js";
 import { buildDistribution } from "./distribution.js";
 import { applyTokenSemantics, loadGovernance, loadPatterns } from "./governance.js";
@@ -28,6 +29,8 @@ export const DOCENT_VERSION: string = JSON.parse(readFileSync(join(DOCENT_ROOT, 
 
 export interface IngestOptions {
   log?: (message: string) => void;
+  /** repo-connector settings for clients with githubAccess: repo-connector; defaults come from the environment. */
+  connector?: ConnectorOptions;
 }
 
 export interface IngestResult {
@@ -37,7 +40,9 @@ export interface IngestResult {
 }
 
 export async function ingest(config: ClientConfig, options: IngestOptions = {}): Promise<IngestResult> {
-  const source = resolveSource(config, options.log);
+  // A connector-backed client gets its credential first; any unapproved state throws before the source is touched.
+  const access = await connectorAccess(config, { log: options.log, ...options.connector });
+  const source = resolveSource(config, options.log, access);
   return buildContract(config, source, options);
 }
 

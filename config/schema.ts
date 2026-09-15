@@ -208,12 +208,31 @@ export const ClientConfig = z.object({
       path: z.string(),
       subdir: z.string().optional(),
     }),
-    z.object({
-      type: z.literal("git"),
-      url: z.string(),
-      ref: z.string().optional(),
-      subdir: z.string().optional(),
-    }),
+    z
+      .object({
+        type: z.literal("git"),
+        url: z.string(),
+        ref: z.string().optional(),
+        subdir: z.string().optional(),
+        /** How Docent reaches the repo: in the open, or with a short-lived token from repo-connector after an admin approves the install. */
+        githubAccess: z.enum(["public", "repo-connector"]).default("public"),
+        /** The repo-connector installation, one per GitHub org or account (e.g. docent:acme). Only with githubAccess: repo-connector. */
+        repoConnectorClientId: z
+          .string()
+          .regex(/^[A-Za-z0-9][A-Za-z0-9:._-]*$/, "repoConnectorClientId may contain letters, digits and : . _ -")
+          .optional(),
+      })
+      .superRefine((s, ctx) => {
+        if (s.githubAccess === "repo-connector" && !s.repoConnectorClientId) {
+          ctx.addIssue({ code: "custom", path: ["repoConnectorClientId"], message: "githubAccess: repo-connector needs repoConnectorClientId, e.g. docent:acme" });
+        }
+        if (s.githubAccess === "public" && s.repoConnectorClientId) {
+          ctx.addIssue({ code: "custom", path: ["repoConnectorClientId"], message: "repoConnectorClientId only applies with githubAccess: repo-connector" });
+        }
+        if (s.githubAccess === "repo-connector" && !/^https:\/\//.test(s.url)) {
+          ctx.addIssue({ code: "custom", path: ["url"], message: "repo-connector tokens work over HTTPS: use https://github.com/<org>/<repo>.git" });
+        }
+      }),
   ]),
   ingestion: z.object({
     components: z.array(ReactTsxExtractor).default([]),

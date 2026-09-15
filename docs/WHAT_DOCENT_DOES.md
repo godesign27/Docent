@@ -49,7 +49,7 @@ Read-only tools, all answered from a snapshot of your design system:
 
 These are plain files. You decide how long they are kept and who can read them. A deployed Docent is a private container for your design system alone, reachable only over HTTPS with a secret token.
 
-Docent needs read access to the design-system repository. It never asks for, stores or transmits credentials; the machine running it uses whatever git access you grant that machine.
+Docent needs read access to the design-system repository. A public repository needs nothing. For a private GitHub repository, you install GO Design's GitHub App with read-only access to the repositories you choose, and nothing is fetched until a GO Design admin approves the install. Docent then fetches with a token that expires within an hour and is never stored. Docent never asks for your passwords or personal tokens.
 
 ## Human review
 
@@ -57,7 +57,7 @@ When a request conflicts with a rule that needs a person's decision, the agent r
 
 ## What we need from you
 
-- Read access to the design-system repository.
+- Read access to the design-system repository: nothing for a public repository, or installing our read-only GitHub App for a private one.
 - The rules that must block, and how strictly (critical: always reject; high: needs a person; lower: warn). If they aren't written down in the repository, we record the ones you state during onboarding.
 - The people who review escalations.
 - A handful of real questions your engineers or agents ask, so routing can be tested against how your team actually works.

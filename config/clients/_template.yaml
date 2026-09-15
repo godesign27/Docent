@@ -13,6 +13,8 @@ source:
   url: https://github.com/acme/design-system.git
   ref: main
   # subdir: packages/ui   # if the design system lives inside a monorepo
+  # githubAccess: repo-connector        # private repo: fetch with a short-lived read-only token from repo-connector
+  # repoConnectorClientId: docent:acme  #   one per GitHub org or account; approved in the connector's /admin
   #
   # …or a checkout already on disk:
   # type: local

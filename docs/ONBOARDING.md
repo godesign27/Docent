@@ -22,11 +22,11 @@ Most of the day is judgment in steps 4–6. The commands themselves run in secon
 ## 0. Prerequisites
 
 - Node.js 20.11 or later, and git.
-- Read access to the client's design-system repo. For a private repo, the machine running Docent needs git credentials that can clone it (SSH key or credential helper). Docent never asks for them.
+- Read access to the client's design-system repo. A public repo needs nothing. For a private GitHub repo, use repo-connector: the client installs GO Design's read-only GitHub App and a connector admin approves it (see [Private repositories](../README.md#private-repositories)). Set `REPO_CONNECTOR_URL` and `REPO_CONNECTOR_API_KEY`, and add `--repo-connector docent:<org>` to `init`.
 - Someone at the client who can answer: which rules must block, and who reviews escalations.
 - A few real questions the client's engineers or agents ask about their design system (for step 6).
 
-**Done when** you can `git clone` the client's repo on this machine.
+**Done when** you can `git clone` the client's public repo on this machine, or its repo-connector installation is approved.
 
 ## 1. Clone Docent for the client
 
@@ -276,3 +276,4 @@ Then restart the local server, or `fly deploy` again. In CI, `npm run ingest -- 
 | Deployed machine restarts every two minutes, logs show `Out of memory: Killed process` | The machine is too small. `fly scale memory 1024`, and keep `[[vm]] memory = "1gb"` in `fly.toml`. |
 | Deployed server exits at startup with `ERR_MODULE_NOT_FOUND` | A source file wasn't committed when you bundled. Commit it, rerun `bundle`, redeploy. |
 | `flyctl` returns `unauthorized` or "request canceled" on machine commands | Its background agent isn't running: `fly agent restart`, then `fly doctor`. |
+| `ingest` or `onboard` exits with code 3: "Ingestion of … was skipped" | The repo-connector installation needs a person. Install the GitHub App from the printed link, approve it in the connector's `/admin`, or grant the App access to the repo. The last contract keeps being served. |

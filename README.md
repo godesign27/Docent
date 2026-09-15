@@ -193,6 +193,25 @@ Governance knowledge is read the same way, through field mappings in config:
 
 **Nothing from the client repo is executed.** Components and Tailwind configs are parsed statically; values that would need execution (spreads, imported presets, computed themes) are reported as gaps.
 
+### Private repositories
+
+Public repositories are cloned in the open. For a private GitHub repository, Docent fetches through [repo-connector](https://github.com/godesign27/repo-connector), GO Design's GitHub App service: a short-lived, read-only token that exists only after a person approves the install. Opt in per client:
+
+```yaml
+source:
+  type: git
+  url: https://github.com/acme/design-system.git
+  githubAccess: repo-connector        # default: public
+  repoConnectorClientId: docent:acme  # one per GitHub org or account, shared by that org's clients
+```
+
+Docent reads `REPO_CONNECTOR_URL` and `REPO_CONNECTOR_API_KEY` from the environment, and checks the installation before every clone or fetch:
+- **No installation:** Docent requests one and prints the install link.
+- **Pending, rejected or revoked, or the repo isn't granted:** ingestion is skipped with exit code 3, and the last contract stays in place.
+- **Approved:** Docent mints a token and fetches.
+
+It never falls back to public access. The token reaches git for that one command and is never written to disk, the git remote, logs or the contract.
+
 ### Gaps
 
 Every value in a contract is either read from the repo with a source location, or `null` with a gap that says why. Examples:

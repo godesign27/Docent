@@ -14,6 +14,7 @@ import { checkIsolation } from "../concierge/isolation.js";
 import { JsonlAuditLog, JsonlReviewStore, LiveConcierge, loadContract, loadSources, requestLogPath, reviewLogPath } from "../concierge/node.js";
 import { DOCENT_VERSION, ingest } from "../ingestion/ingest.js";
 import { consoleSummary, writeOutputs } from "../ingestion/report.js";
+import { connectorAccess, SourceAccessBlocked } from "../ingestion/repo-connector.js";
 import { resolveSource } from "../ingestion/source.js";
 import { bundleClient } from "../onboarding/bundle.js";
 import { detectRepo } from "../onboarding/detect.js";
@@ -22,7 +23,7 @@ import { renderConfig, renderEval, slugify, starterEval, titleCase, type ClientI
 const HELP = `Docent — design-system concierge
 
 Usage:
-  docent init   --repo <git-url | path> [--id <id>] [--name <name>] [--ref <ref>] [--subdir <dir>] [--yes] [--force]
+  docent init   --repo <git-url | path> [--id <id>] [--name <name>] [--ref <ref>] [--subdir <dir>] [--repo-connector <docent:org>] [--yes] [--force]
   docent onboard --client <id>
   docent ingest (--client <id> | --config <path>) [--ref <git-ref>] [--fail-on error|warning] [--quiet]
   docent serve  (--client <id> | --config <path>) [--http [--host 127.0.0.1] [--port 3333]]
@@ -64,6 +65,9 @@ Options:
   --yes          For init: accept detected values without prompting
   --force        For init: overwrite an existing config
   --quiet        Only print the summary
+  --repo-connector For init: fetch a private GitHub repo through repo-connector with this installation id (e.g. docent:acme)
+
+Exit codes: 0 done, 1 error, 2 checks failed, 3 ingestion skipped because a repo-connector installation needs a person to act.
 `;
 
 function clientIds(): string[] {
@@ -119,6 +123,7 @@ async function main(): Promise<number> {
       out: { type: "string" },
       app: { type: "string" },
       region: { type: "string" },
+      "repo-connector": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -148,14 +153,24 @@ async function main(): Promise<number> {
     }
     const path = join(CLIENTS_DIR, `${id}.yaml`);
     if (existsSync(path) && !values.force) throw new ConfigError(`${path} already exists; pass --force to overwrite it`);
+    const connectorId = values["repo-connector"];
+    if (connectorId && !isGit) throw new ConfigError("--repo-connector needs a git URL such as https://github.com/<org>/<repo>.git");
     const source: ClientIdentity["source"] = isGit
-      ? { type: "git", url: values.repo, ...(values.ref ? { ref: values.ref } : {}), ...(values.subdir ? { subdir: values.subdir } : {}) }
+      ? {
+          type: "git",
+          url: values.repo,
+          ...(values.ref ? { ref: values.ref } : {}),
+          ...(values.subdir ? { subdir: values.subdir } : {}),
+          githubAccess: connectorId ? "repo-connector" : "public",
+          ...(connectorId ? { repoConnectorClientId: connectorId } : {}),
+        }
       : { type: "local", path: resolve(values.repo), ...(values.subdir ? { subdir: values.subdir } : {}) };
     const identity: ClientIdentity = { id, name, source };
 
     const started = Date.now();
     const probe = { client: { id, name }, source } as Parameters<typeof resolveSource>[0];
-    const resolved = resolveSource(probe, (m) => console.log(`  ${m}`));
+    const access = await connectorAccess(probe, { log: (m) => console.log(`  ${m}`) });
+    const resolved = resolveSource(probe, (m) => console.log(`  ${m}`), access);
     const proposal = await detectRepo(resolved.root);
     writeFileSync(path, renderConfig(identity, proposal));
     loadConfig(path);
@@ -409,6 +424,10 @@ async function main(): Promise<number> {
 main().then(
   (code) => process.exit(code),
   (err) => {
+    if (err instanceof SourceAccessBlocked) {
+      console.error(`⏸ ${err.message}`);
+      process.exit(err.exitCode);
+    }
     console.error(err instanceof ConfigError ? `✖ ${err.message}` : err instanceof Error ? `✖ ${err.message}` : err);
     process.exit(1);
   },
