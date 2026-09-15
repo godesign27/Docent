@@ -1,6 +1,6 @@
 # UIContext Agent
 
-Drafts `{product}_{feature}_{id}_uicontext.md` from a finished prototype, and confirms every design-system claim against [Docent](../README.md) before writing it down. See the [PRD](docs/PRD.md) and the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
+Drafts `{product}_{feature}_{id}_uicontext.md` from a finished prototype, and confirms every design-system claim against [Docent](../README.md) before writing it down. See the [PRD](../prd/uicontext-agent-prd.md) and the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
 **Status: Phase 0 (evidence layer) built.** The agent reads a prototype statically and checks, through Docent:
 

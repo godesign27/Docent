@@ -1,6 +1,6 @@
 # Docent — Phased Implementation Plan
 
-Companion to PRD.md. Each phase has a single exit criterion — don't start the next phase until it's met.
+Companion to [the PRD](../prd/docent-prd.md). Each phase has a single exit criterion — don't start the next phase until it's met.
 
 ---
 
@@ -66,4 +66,4 @@ Companion to PRD.md. Each phase has a single exit criterion — don't start the 
 
 ## What to hand to Claude Code
 
-Once the repo exists, the most useful first prompt is Phase 0 only — don't ask it to build the whole system at once. Point it at PRD.md and this file, and ask it to scaffold the repo structure and build ingestion against one real repo. Confirm Phase 0's exit criterion before moving it on to Phase 1.
+Once the repo exists, the most useful first prompt is Phase 0 only — don't ask it to build the whole system at once. Point it at `prd/docent-prd.md` and this file, and ask it to scaffold the repo structure and build ingestion against one real repo. Confirm Phase 0's exit criterion before moving it on to Phase 1.

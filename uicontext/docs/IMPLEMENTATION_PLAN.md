@@ -1,6 +1,6 @@
 # UIContext Agent — Implementation plan
 
-How the [PRD](PRD.md) gets built, phase by phase. Each phase ends with an exit criterion that is checked before the next phase starts.
+How the [PRD](../../prd/uicontext-agent-prd.md) gets built, phase by phase. Each phase ends with an exit criterion that is checked before the next phase starts.
 
 ## Where the agent runs in the handoff flow
 

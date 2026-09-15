@@ -29,7 +29,7 @@ Incoming agent request  ──────────────────�
                                               Returned to caller
 ```
 
-Full architecture and rationale: see [`docs/PRD.md`](docs/PRD.md).
+Why Docent exists and what it's for: [`prd/`](prd/README.md), starting with the [PRD](prd/docent-prd.md) and [intent and decisions](prd/docent-intent.md).
 
 ## Status
 
