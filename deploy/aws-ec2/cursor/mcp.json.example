@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "docent": {
+      "url": "https://<INTERNAL_HOSTNAME>/mcp",
+      "headers": {
+        "Authorization": "Bearer <DOCENT_TOKEN>",
+        "X-Docent-Caller": "cursor"
+      }
+    }
+  }
+}

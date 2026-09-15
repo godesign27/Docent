@@ -223,7 +223,7 @@ fly ssh console -C "node bin/docent.js reviews --client <client-id>"
 fly ssh console -C "node bin/docent.js review --client <client-id> <review-id> --approve --note '...' --by <name>"
 ```
 
-Anywhere else that runs a container works the same way: build the [`Dockerfile`](../Dockerfile), set `DOCENT_CLIENT` and `DOCENT_TOKEN`, expose port 8080, mount `/app/logs`.
+Anywhere else that runs a container works the same way: build the [`Dockerfile`](../Dockerfile), set `DOCENT_CLIENT` and `DOCENT_TOKEN`, expose port 8080, mount `/app/logs`. For EC2 inside a company's AWS account, with the design system on Bitbucket Cloud, follow [`deploy/aws-ec2/INSTALL.md`](../deploy/aws-ec2/INSTALL.md).
 
 **Done when** `/healthz` shows the client's contract hash and a remote agent's request appears in the logs with transport `http`.
 

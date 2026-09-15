@@ -1,0 +1,60 @@
+# Template. Copy to the root of your internal Docent repository as bitbucket-pipelines.yml.
+#
+# Every push runs the tests. The "ingest-and-deploy" custom pipeline refreshes the client's contract
+# from the design-system repo, checks it, and ships it to the EC2 host:
+#   test → ingest + eval + bundle → build and push the image to ECR → deploy through SSM
+#
+# Repository variables it needs (Repository settings → Repository variables), none of them secret:
+#   DOCENT_CLIENT               client id, e.g. acme-design-system
+#   AWS_REGION                  e.g. us-east-1
+#   DOCENT_ECR_REPOSITORY_URI   <account>.dkr.ecr.<region>.amazonaws.com/docent-<client-id>
+#   DOCENT_DEPLOY_ROLE_ARN      the pipeline role Bitbucket assumes through OIDC (iam/pipeline-*.json)
+#   NPM_CONFIG_REGISTRY         optional internal npm registry
+#
+# Access to the design-system repo comes from the pipeline's SSH key (Repository settings → Pipelines →
+# SSH keys), added as a read-only access key on the design-system repository. No AWS keys are stored.
+image: node:22
+
+definitions:
+  steps:
+    - step: &test
+        name: Test Docent
+        caches:
+          - node
+        script:
+          - npm ci
+          - npm test
+
+pipelines:
+  default:
+    - step: *test
+
+  custom:
+    ingest-and-deploy:
+      - step: *test
+      - step:
+          name: Ingest, evaluate and bundle
+          caches:
+            - node
+          script:
+            - npm ci
+            # Fails the build on error-level gaps (a broken glob, a missing mode) before anything ships.
+            - npm run docent -- ingest --client "$DOCENT_CLIENT" --fail-on error
+            # Fails the build when routing regresses against the client's eval batch.
+            - npm run docent -- eval --client "$DOCENT_CLIENT"
+            # Docent plus this one client's config and contract, and nothing of any other client.
+            - npm run docent -- bundle --client "$DOCENT_CLIENT"
+          artifacts:
+            - .deploy/**
+      - step:
+          name: Build and push the image
+          oidc: true
+          services:
+            - docker
+          script:
+            - bash deploy/aws-ec2/ci/build-and-push.sh
+      - step:
+          name: Deploy to EC2
+          oidc: true
+          script:
+            - bash deploy/aws-ec2/ci/deploy-via-ssm.sh

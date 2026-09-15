@@ -41,6 +41,7 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 ## Docent
 
+- **First real run of the AWS EC2 kit** (`deploy/aws-ec2/`). It hasn't run in AWS yet: the Dockerfile, bootstrap, IAM policies and pipeline need an end-to-end install, and IT approval comes first.
 - **Usage stats report** (`docent stats`): answered, escalated, rejected and clarification rates, and components requested that don't exist.
 - **Reviewer notifications** for escalations.
 - **Re-ingest, eval and redeploy in CI** after design-system merges.
@@ -57,6 +58,7 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 ## Done recently
 
+- AWS EC2 deployment kit written (`deploy/aws-ec2/`): non-root Dockerfile, bootstrap, IAM policies, Bitbucket Pipelines with OIDC and SSM deploys, install guide, agent instructions and IT brief.
 - repo-connector integration built against a fake connector: opt-in config, approval check before every clone or fetch, token never written to disk, `init --repo-connector`, exit code 3 for skips.
 - repo-connector API key rotated; the new key is in `~/.docent/tokens/repo-connector-api-key` and the connector's Fly secret.
 - Docent deployed on Fly.io for agentic-ui-shadcn, with Cursor connected over HTTPS.

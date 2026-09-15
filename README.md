@@ -86,6 +86,8 @@ A server loads exactly one client's contract, snapshot and policy, and its reque
 
 ### Deploy for a team
 
+Running inside a company's own AWS account, on EC2 with the design system on Bitbucket Cloud? Use the kit in [`deploy/aws-ec2/`](deploy/aws-ec2/README.md): a non-root Dockerfile, EC2 bootstrap, IAM policies, a Bitbucket Pipelines deploy, an install guide, instructions for the agents doing the install, and a brief for IT.
+
 `serve --http` serves MCP Streamable HTTP at `/mcp` with a health check at `/healthz`. A bearer token (`DOCENT_TOKEN`, 24+ characters) is required whenever the server listens beyond localhost. The [`Dockerfile`](Dockerfile) builds a per-client image and [`fly.toml.example`](fly.toml.example) deploys it to Fly.io; see [step 8 of the runbook](docs/ONBOARDING.md#8-deploy-for-the-team-optional).
 
 ### Connect a calling agent

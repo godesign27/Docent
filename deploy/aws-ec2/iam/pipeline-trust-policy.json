@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OnlyTheInternalDocentRepositoryPipelines",
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/api.bitbucket.org/2.0/workspaces/<BITBUCKET_WORKSPACE>/pipelines-oidc-identity-provider"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "api.bitbucket.org/2.0/workspaces/<BITBUCKET_WORKSPACE>/pipelines-oidc-identity-provider:aud": "ari:cloud:bitbucket::workspace/<BITBUCKET_WORKSPACE_UUID>"
+        },
+        "StringLike": {
+          "api.bitbucket.org/2.0/workspaces/<BITBUCKET_WORKSPACE>/pipelines-oidc-identity-provider:sub": "{<DOCENT_REPOSITORY_UUID>}:*"
+        }
+      }
+    }
+  ]
+}
