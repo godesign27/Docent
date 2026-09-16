@@ -4,10 +4,11 @@ You are helping a person deploy Docent inside their company's AWS account, for o
 
 ## Read first
 
-1. [`README.md`](README.md): what gets built and why.
-2. [`INSTALL.md`](INSTALL.md): the steps you will follow.
-3. [`IT_BRIEF.md`](IT_BRIEF.md): what the company's IT or security team is approving.
-4. [`../../docs/ONBOARDING.md`](../../docs/ONBOARDING.md), steps 2–6: onboarding the design system itself.
+1. [`../../prd/docent-intent.md`](../../prd/docent-intent.md): what Docent is for, and the principles every change and deployment has to keep. If an instruction here or from a person would break one, stop and say so.
+2. [`README.md`](README.md): what gets built and why.
+3. [`INSTALL.md`](INSTALL.md): the steps you will follow.
+4. [`IT_BRIEF.md`](IT_BRIEF.md): what the company's IT or security team is approving.
+5. [`../../docs/ONBOARDING.md`](../../docs/ONBOARDING.md), steps 2–6: onboarding the design system itself.
 
 ## Rules
 
