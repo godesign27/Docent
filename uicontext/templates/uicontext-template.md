@@ -73,12 +73,13 @@ One file. Slices: `UX-BEHAVIOR` · `UI-SURFACE` · `CONTRACTS` · `VERIFY` · `P
 
 Do not hardcode component names, tokens, or governance rules into this document from memory. Every claim below about what exists in the design system must be confirmed via Docent before being written down.
 
-| Need | Docent tool |
+| Need | Docent call |
 |---|---|
-| Does this component exist? What are its props/variants? | `get_contract` |
-| Is this the correct token for this use? | `search_patterns` |
-| Does this composition violate a governance rule? | `get_governance` |
-| What's the broader pattern/strategy for this kind of screen? | `get_strategy` |
+| Does this component exist? What are its props/variants? | `ask` with `component` set to the import path or name |
+| Is this the correct token for this use? | `ask` naming the CSS variable or utility class |
+| Does this composition violate a governance rule? | `ask` with `code` set to the file |
+| What's the broader pattern/strategy for this kind of screen? | `ask` a patterns question |
+| Give me the component's own code and setup | `get_component` / `get_foundation` |
 
 **If Docent cannot confirm something, write `UNKNOWN` and log it as an open question. Do not invent a name, value, or rule to fill the gap.**
 

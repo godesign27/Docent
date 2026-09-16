@@ -6,7 +6,6 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 - **Wire the real GitHub App** for the repo connector, then set `CONNECTOR_MODE=github` on its Fly app.
 - **Duplicate AI components in agentic-ui-shadcn.** Pick one of each pair: `AIAvatar`, `AIButton`, `AIDialog`, `AIFeedbackBar`, `AIMessageBody`, `AIMessageFooter`, `AIMessageHeader`. One eval fails until then.
-- **UIContext templates:** switch their Agent access tables to Docent's `ask`, or add the four PRD tool names to Docent as aliases.
 - **Test site cleanup:** remove the invented nav items (Product 1, Product 2, Recents) and one of the two sidebar toggles.
 
 ## Repo connector integration
@@ -51,13 +50,15 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 ## UIContext agent
 
-- Phase 1: draft and render, with the claim lint.
+- **Phase 1's remaining exit check needs an API key.** The seeded test passes: a scripted model that invents a component, a token and an import path produces a file with none of them, three flags and three Blocking questions. Drafting the Docent-TestSite dashboard for real needs `ANTHROPIC_API_KEY` in the environment.
 - Phase 2: completeness gate.
 - Phase 3: regeneration.
 - Phase 4: productize.
 
 ## Done recently
 
+- UIContext agent Phase 1: the draft pass (Claude behind a small `Model` interface, so tests run scripted and free), rendering every design-system table from evidence, and the claim lint that replaces an unconfirmed name with `UNKNOWN`, records it in `flags.json` and raises a Blocking question pointing at the prototype.
+- The UIContext templates now point agents at Docent's real `ask` call instead of the four tool names Docent doesn't have.
 - AWS EC2 deployment kit written (`deploy/aws-ec2/`): non-root Dockerfile, bootstrap, IAM policies, Bitbucket Pipelines with OIDC and SSM deploys, install guide, agent instructions and IT brief.
 - repo-connector integration built against a fake connector: opt-in config, approval check before every clone or fetch, token never written to disk, `init --repo-connector`, exit code 3 for skips.
 - repo-connector API key rotated; the new key is in `~/.docent/tokens/repo-connector-api-key` and the connector's Fly secret.

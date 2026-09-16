@@ -29,6 +29,8 @@ export const Flag = z.object({
     "governance-warning",
     "governance-unavailable",
     "contract-changed",
+    /** Raised by the claim lint in render.ts, not by this pass: a draft named something Docent never confirmed. */
+    "unconfirmed-claim",
   ]),
   message: z.string(),
   locations: z.array(Location),

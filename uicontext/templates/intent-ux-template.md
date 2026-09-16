@@ -282,12 +282,12 @@ Pass/fail outcomes an agent (or reviewer) can check without prescribing implemen
 
 Do not hardcode design-system knowledge into this document. Query Docent for anything you'd otherwise guess:
 
-| Need | Docent tool |
+| Need | Docent call |
 |---|---|
-| Does a component for this exist? | `get_contract` |
-| What's the right token? | `search_patterns` |
-| What's the broader pattern for this kind of screen? | `get_strategy` |
-| Does this violate a governance rule? | `get_governance` |
+| Does a component for this exist? | `ask` with `component` set to the import path or name |
+| What's the right token? | `ask` naming the CSS variable or utility class |
+| What's the broader pattern for this kind of screen? | `ask` a patterns question |
+| Does this violate a governance rule? | `ask` with `code` set to the file |
 
 If Docent cannot confirm something, write `UNKNOWN` and raise it as an open question — do not invent a name, value, or rule.
 

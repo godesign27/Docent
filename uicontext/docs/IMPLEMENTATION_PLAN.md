@@ -46,7 +46,7 @@ prior file ───────────────────────
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | **Docent's real tools, not the PRD's names.** The PRD and templates name `get_contract`, `search_patterns`, `get_governance` and `get_strategy`, which Docent doesn't have. The agent uses the mapping below; the templates' *Agent access* tables should be updated to match. | One Docent API for every agent; `search_patterns` for tokens would mislead. |
+| D1 | **Docent's real tools, not the PRD's names.** The PRD and templates name `get_contract`, `search_patterns`, `get_governance` and `get_strategy`, which Docent doesn't have. The agent uses the mapping below, and both templates' *Agent access* tables now name `ask` too (changed with Phase 1). | One Docent API for every agent; `search_patterns` for tokens would mislead. |
 | D2 | **Lives in the Docent repo under `uicontext/`**, but talks to Docent only over MCP. It imports no Docent source; tests may import Docent to stand up a fixture server. A test enforces this. | Reusable with any client's Docent (stdio or HTTP), and shares tooling. Easy to split into its own repo later. |
 | D3 | **Claude via the Anthropic API** for the draft and gate passes, behind a small `Model` interface, so tests run against a scripted model. Needs `ANTHROPIC_API_KEY` in the environment. | Structured output and a separate grader call are straightforward; tests stay deterministic. |
 | D4 | **Story as a file first** (Jira JSON export or markdown), fetched from Jira's REST API later (Phase 4), with credentials from the environment. | No Jira access is needed to build and test the core. |
