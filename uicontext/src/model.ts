@@ -46,17 +46,23 @@ export class ClaudeModel implements Model {
     this.client = new Anthropic({ apiKey, ...(workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {}) });
   }
 
+  /**
+   * Streamed, because a UIContext draft is long and adaptive thinking shares the output budget:
+   * at 16k the JSON came back truncated mid-string. A cut-off answer is never patched up — it fails.
+   */
   async complete<T>(request: ModelRequest<T>): Promise<T> {
     let response;
     try {
-      response = await this.client.messages.parse({
-        model: this.name,
-        max_tokens: 16000,
-        system: request.system,
-        messages: [{ role: "user", content: request.prompt }],
-        thinking: { type: "adaptive" },
-        output_config: { format: zodOutputFormat(request.schema) },
-      });
+      response = await this.client.messages
+        .stream({
+          model: this.name,
+          max_tokens: 64000,
+          system: request.system,
+          messages: [{ role: "user", content: request.prompt }],
+          thinking: { type: "adaptive" },
+          output_config: { format: zodOutputFormat(request.schema) },
+        })
+        .finalMessage();
     } catch (err) {
       const message = (err as Error).message;
       const hint = message.includes("anthropic-workspace-id")
@@ -65,9 +71,17 @@ export class ClaudeModel implements Model {
       throw new ModelUnavailable(`The ${request.purpose} pass could not be run: ${message}${hint}`);
     }
     if (response.stop_reason === "refusal") throw new ModelUnavailable(`The model declined the ${request.purpose} pass: ${response.stop_details?.explanation ?? "no explanation given"}.`);
-    if (response.stop_reason === "max_tokens") throw new ModelUnavailable(`The ${request.purpose} pass was cut off at the token limit, so its ${request.schemaName} is incomplete.`);
-    if (!response.parsed_output) throw new ModelUnavailable(`The ${request.purpose} pass did not return a valid ${request.schemaName}.`);
-    return response.parsed_output as T;
+    if (response.stop_reason === "max_tokens") throw new ModelUnavailable(`The ${request.purpose} pass was cut off at ${response.usage.output_tokens} output tokens, so its ${request.schemaName} is incomplete.`);
+
+    const text = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+    try {
+      return request.schema.parse(JSON.parse(text));
+    } catch (err) {
+      throw new ModelUnavailable(`The ${request.purpose} pass did not return a valid ${request.schemaName}: ${(err as Error).message}`);
+    }
   }
 }
 

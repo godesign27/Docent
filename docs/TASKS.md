@@ -50,12 +50,13 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 ## UIContext agent
 
-- Phase 2: completeness gate.
 - Phase 3: regeneration.
 - Phase 4: productize.
 
 ## Done recently
 
+- **UIContext agent Phase 2 is done**: nine deterministic checks plus a grader pass with fresh context that sees only the inputs and the rendered file. Code sets `handoff.status`; `ready` needs every blocking check passed and no blocking finding. On the first real gated run the grader caught three renderer bugs of its own — props marked "used" per component instead of per part, evidence ids cited in prose but never defined in the file, and a variant chosen in code reported as `default`. All three are fixed.
+- The model call streams at 64k output: at 16k a long draft came back as truncated JSON, because adaptive thinking shares that budget.
 - **UIContext agent Phase 1 is done**, both exit checks met: the seeded test (an invented component, token and import path never reach the file) and a real draft of the Docent-TestSite dashboard — 473 lines, every section filled, 24 components confirmed, 0 invented names, 7 Blocking and 8 Advisory questions, `blocked`. It found contradictions the intent-ux had not: the projects table never filters by the date range, and a typed future date is applied while the calendar blocks it.
 - An org-level Anthropic key needs `ANTHROPIC_WORKSPACE_ID`; the model layer now sends `anthropic-workspace-id` when it is set.
 - UIContext agent Phase 1: the draft pass (Claude behind a small `Model` interface, so tests run scripted and free), rendering every design-system table from evidence, and the claim lint that replaces an unconfirmed name with `UNKNOWN`, records it in `flags.json` and raises a Blocking question pointing at the prototype.

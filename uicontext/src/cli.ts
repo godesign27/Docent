@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { type DocentConnection, DocentClient, DocentUnavailable } from "./docent.js";
 import { draftUiContext } from "./draft.js";
+import { type GateResult, applyGate, gate } from "./gate.js";
 import { Evidence, gatherEvidence } from "./evidence.js";
 import { handoffName, loadDocument, loadPrototype } from "./inputs.js";
 import { ClaudeModel, ModelUnavailable } from "./model.js";
@@ -131,12 +132,25 @@ async function main(): Promise<number> {
   }
 
   const rendered = render({ inputs: full, evidence, draft, now, route: values.route, prototypeSource: basename(root) });
+
+  // The drafter does not grade its own draft: a second pass decides the status.
+  let gated: GateResult;
+  try {
+    gated = await gate({ model: model!, inputs: full, evidence, rendered, markdown: rendered.markdown });
+  } catch (err) {
+    if (err instanceof ModelUnavailable) {
+      console.error(`✖ ${err.message}\n  The draft was not written, because nothing decided whether it is complete.`);
+      return 3;
+    }
+    throw err;
+  }
+
   const outDir = resolve(values["out-dir"] ?? dirname(resolve(values["intent-ux"]!)));
   const file = join(outDir, full.name.uicontext);
-  writeFile(file, rendered.markdown);
-  writeFile(join(outDir, "flags.json"), `${JSON.stringify(flagsFile(rendered, evidence, full, now), null, 2)}\n`);
+  writeFile(file, applyGate(rendered.markdown, gated));
+  writeFile(join(outDir, "flags.json"), `${JSON.stringify(flagsFile(rendered, evidence, full, now, gated), null, 2)}\n`);
   if (!reuse && values.evidence) writeFile(resolve(values.evidence), `${JSON.stringify(evidence, null, 2)}\n`);
-  printDraft(rendered, evidence, file, Date.now() - started, model!.name);
+  printDraft(rendered, gated, evidence, file, Date.now() - started, model!.name);
   return 0;
 }
 
@@ -181,10 +195,13 @@ function printEvidence(e: Evidence, out: string, ms: number) {
   console.log(`  Wrote ${out} in ${(ms / 1000).toFixed(1)}s`);
 }
 
-function printDraft(rendered: ReturnType<typeof render>, e: Evidence, file: string, ms: number, model: string) {
-  console.log(`Drafted ${basename(file)} against ${e.docent.client.name} (contract ${e.docent.contractHash.slice(0, 19)}…, drafted by ${model})`);
+function printDraft(rendered: ReturnType<typeof render>, gated: GateResult, e: Evidence, file: string, ms: number, model: string) {
+  const failed = gated.checks.filter((c) => !c.passed);
+  console.log(`Drafted ${basename(file)} against ${e.docent.client.name} (contract ${e.docent.contractHash.slice(0, 19)}…, drafted and graded by ${model})`);
   console.log(`  Components:     ${count(e.components, "status")}`);
-  console.log(`  Status:         ${rendered.status}`);
+  console.log(`  Status:         ${gated.status} (${gated.checks.length - failed.length}/${gated.checks.length} checks passed)`);
+  for (const check of failed) console.log(`    ${check.blocking ? "✖" : "!"} ${check.title}: ${check.detail}`);
+  for (const finding of gated.grader?.findings ?? []) console.log(`    ${finding.severity === "blocking" ? "✖" : "!"} grader — ${finding.section}: ${finding.finding}`);
   console.log(`  Questions:      ${rendered.questions.filter((q) => q.priority === "Blocking").length} blocking, ${rendered.questions.filter((q) => q.priority === "Advisory").length} advisory`);
   console.log(`  Unconfirmed claims replaced with UNKNOWN: ${rendered.unconfirmed.length}`);
   for (const u of rendered.unconfirmed) console.log(`    ✖ ${u.flag} ${u.field} (the name is in flags.json)`);

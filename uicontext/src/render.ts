@@ -8,6 +8,7 @@
  * at the prototype, not at the unconfirmed name.
  */
 import type { Draft } from "./draft.js";
+import type { GateResult } from "./gate.js";
 import type { ComponentEvidence, Evidence, Flag } from "./evidence.js";
 import type { HandoffName, Inputs } from "./inputs.js";
 
@@ -202,8 +203,8 @@ export function render(options: RenderOptions): Rendered {
   rule();
 
   push("# Part 2 — UI surface (component inventory)", "", "<!-- slice: UI-SURFACE -->", "", "Rendered from Docent's answers, not written by hand. `req` is the Docent request behind each row.", "");
-  push("## Component inventory", "", inventory.length ? table(["Component", "Confirmed via Docent?", "Variant used", "Notes"], inventory) : "_The prototype imports no design-system components._", "");
-  push("## Design tokens", "", tokenRows(evidence).length ? table(["Token", "Confirmed via Docent?", "Usage", "Value reference"], tokenRows(evidence)) : "_The prototype uses no CSS variables._", "");
+  push("## Component inventory", "", inventory.length ? table(["Id", "Component", "Confirmed via Docent?", "Variant used", "Notes"], inventory) : "_The prototype imports no design-system components._", "");
+  push("## Design tokens", "", tokenRows(evidence).length ? table(["Id", "Token", "Confirmed via Docent?", "Usage", "Value reference"], tokenRows(evidence)) : "_The prototype uses no CSS variables._", "");
   push("## Utility classes", "", utilityRows(evidence).length ? table(["Kind", "Classes", "Meaning"], utilityRows(evidence)) : "_The prototype uses no utility classes._", "");
   push("## Props API (primary components)", "", propRows(evidence).length ? table(["Component", "Prop", "Type", "Required?", "Notes"], propRows(evidence)) : "_No props to report._");
   rule();
@@ -324,18 +325,24 @@ function componentRows(e: Evidence): string[][] {
     const req = c.requestIds[0] ? `req ${c.requestIds[0].slice(0, 8)}` : "no request";
     const where = c.imports.map((i) => `${i.at.file}:${i.at.line}`)[0] ?? "";
     const variants = c.docent?.parts.flatMap((p) => p.variants.map((v) => v.name)) ?? [];
-    const used = [...new Set(c.usage.flatMap((u) => u.props.filter((p) => p.value && variants.includes(p.name)).map((p) => `${p.name}=${p.value}`)))];
+    const set = c.usage.flatMap((u) => u.props.filter((p) => variants.includes(p.name)));
+    // A variant passed as an expression is not the default: say it is chosen in code rather than
+    // claiming a value the prototype never states.
+    const used = [
+      ...new Set(set.filter((p) => p.value).map((p) => `${p.name}=${p.value}`)),
+      ...new Set(set.filter((p) => !p.value).map((p) => `${p.name} set in code`)),
+    ];
     switch (c.status) {
       case "confirmed":
-        return [c.docent!.name, `Yes (${req})`, used.join(", ") || "default", `\`${c.module}\` · used ${c.usage.length}×`];
+        return [c.id, c.docent!.name, `Yes (${req})`, used.join(", ") || "default", `\`${c.module}\` · used ${c.usage.length}×`];
       case "near-match":
-        return [c.docent!.name, `Yes, by name (${req})`, used.join(", ") || "default", `Imported from \`${c.module}\`; the design system's path is \`${c.docent!.importPath}\``];
+        return [c.id, c.docent!.name, `Yes, by name (${req})`, used.join(", ") || "default", `Imported from \`${c.module}\`; the design system's path is \`${c.docent!.importPath}\``];
       case "not-in-inventory":
-        return [c.docent!.name, `Exists, but not in the inventory (${req})`, "—", `Not available for use; imported at ${where}`];
+        return [c.id, c.docent!.name, `Exists, but not in the inventory (${req})`, "—", `Not available for use; imported at ${where}`];
       case "ambiguous":
-        return ["UNKNOWN", `No — several components share the name (${req})`, "—", `Import at ${where}; candidates are in flags.json`];
+        return [c.id, "UNKNOWN", `No — several components share the name (${req})`, "—", `Import at ${where}; candidates are in flags.json`];
       default:
-        return ["UNKNOWN", `No (${req})`, "—", `Import at ${where}; Docent confirmed nothing for it`];
+        return [c.id, "UNKNOWN", `No (${req})`, "—", `Import at ${where}; Docent confirmed nothing for it`];
     }
   });
 }
@@ -343,9 +350,9 @@ function componentRows(e: Evidence): string[][] {
 function tokenRows(e: Evidence): string[][] {
   return e.tokens.map((t) => {
     const where = t.uses.map((u) => `${u.file}:${u.line}`).slice(0, 3).join(", ");
-    if (t.status !== "confirmed") return ["UNKNOWN", `No (req ${t.requestId.slice(0, 8)})`, where, "Not a token Docent can confirm"];
+    if (t.status !== "confirmed") return [t.id, "UNKNOWN", `No (req ${t.requestId.slice(0, 8)})`, where, "Not a token Docent can confirm"];
     const values = Object.entries(t.token!.values).map(([mode, v]) => `${mode}: ${v}`).join("; ");
-    return [`\`${t.variable}\``, `Yes (req ${t.requestId.slice(0, 8)})`, `${t.token!.category}${t.token!.meaning ? ` — ${t.token!.meaning}` : ""} · ${where}`, values || `\`var(${t.variable})\``];
+    return [t.id, `\`${t.variable}\``, `Yes (req ${t.requestId.slice(0, 8)})`, `${t.token!.category}${t.token!.meaning ? ` — ${t.token!.meaning}` : ""} · ${where}`, values || `\`var(${t.variable})\``];
   });
 }
 
@@ -367,8 +374,9 @@ function propRows(e: Evidence): string[][] {
   const rows: string[][] = [];
   for (const c of e.components) {
     if (c.status === "unconfirmed" || c.status === "ambiguous" || !c.docent) continue;
-    const used = new Set(c.usage.flatMap((u) => u.props.map((p) => p.name)));
     for (const part of c.docent.parts) {
+      // Per part: a prop used on one part says nothing about a sibling that the prototype never renders.
+      const used = new Set(c.usage.filter((u) => u.part === part.name).flatMap((u) => u.props.map((p) => p.name)));
       for (const prop of part.props) {
         if (!used.has(prop.name) && !prop.required) continue;
         rows.push([part.name, `\`${prop.name}\``, `\`${prop.values?.join(" \\| ") ?? prop.type}\``, prop.required ? "Yes" : "No", [prop.default ? `default \`${prop.default}\`` : "", used.has(prop.name) ? "used in the prototype" : ""].filter(Boolean).join("; ")]);
@@ -422,11 +430,12 @@ function table(headers: string[], rows: string[][]): string {
 }
 
 /** What a run writes beside the file: everything that could not be stated as fact. */
-export function flagsFile(rendered: Rendered, evidence: Evidence, inputs: Inputs, now: Date) {
+export function flagsFile(rendered: Rendered, evidence: Evidence, inputs: Inputs, now: Date, gate: GateResult | null = null) {
   return {
     version: 1,
     generatedAt: now.toISOString(),
-    handoff: { file: inputs.name.uicontext, status: rendered.status },
+    handoff: { file: inputs.name.uicontext, status: gate ? gate.status : rendered.status },
+    gate,
     docent: evidence.docent,
     counts: {
       blocking: rendered.flags.filter((f) => f.severity === "blocking").length,
