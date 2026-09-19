@@ -37,11 +37,13 @@ export class ClaudeModel implements Model {
   readonly name: string;
   private readonly client: Anthropic;
 
-  constructor(options: { model?: string; apiKey?: string } = {}) {
+  constructor(options: { model?: string; apiKey?: string; workspaceId?: string } = {}) {
     const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new ModelUnavailable("No Anthropic API key. Set ANTHROPIC_API_KEY in the environment before drafting.");
+    // An organisation key that isn't scoped to a workspace has to name one on every request.
+    const workspaceId = options.workspaceId ?? process.env.ANTHROPIC_WORKSPACE_ID;
     this.name = options.model ?? ClaudeModel.DEFAULT_MODEL;
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ apiKey, ...(workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {}) });
   }
 
   async complete<T>(request: ModelRequest<T>): Promise<T> {
@@ -56,7 +58,11 @@ export class ClaudeModel implements Model {
         output_config: { format: zodOutputFormat(request.schema) },
       });
     } catch (err) {
-      throw new ModelUnavailable(`The ${request.purpose} pass could not be run: ${(err as Error).message}`);
+      const message = (err as Error).message;
+      const hint = message.includes("anthropic-workspace-id")
+        ? " Set ANTHROPIC_WORKSPACE_ID to the workspace the key should bill to, or use a workspace-scoped key."
+        : "";
+      throw new ModelUnavailable(`The ${request.purpose} pass could not be run: ${message}${hint}`);
     }
     if (response.stop_reason === "refusal") throw new ModelUnavailable(`The model declined the ${request.purpose} pass: ${response.stop_details?.explanation ?? "no explanation given"}.`);
     if (response.stop_reason === "max_tokens") throw new ModelUnavailable(`The ${request.purpose} pass was cut off at the token limit, so its ${request.schemaName} is incomplete.`);

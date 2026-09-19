@@ -27,7 +27,7 @@ npm run uicontext -- draft --prototype ../my-prototype --entry src/pages/Reports
 
 - `--entry` can repeat; the agent follows the prototype's own imports from there and stops at design-system components.
 - `--docent-client <id>` starts this repo's Docent for that client over stdio. Use `--docent-url https://…/mcp` for a deployed Docent (token from `DOCENT_TOKEN`).
-- `draft` writes the `.md` next to the intent-ux file (or under `--out-dir`) plus `flags.json`. It needs `ANTHROPIC_API_KEY`; `--evidence <file>` reuses an earlier evidence run instead of asking Docent again.
+- `draft` writes the `.md` next to the intent-ux file (or under `--out-dir`) plus `flags.json`. It needs `ANTHROPIC_API_KEY` (plus `ANTHROPIC_WORKSPACE_ID` if the key is org-level rather than scoped to a workspace); `--evidence <file>` reuses an earlier evidence run instead of asking Docent again.
 - Exit codes: `2` Docent was unavailable, `3` the model was unavailable. Nothing is written on either.
 
 ## What it reports

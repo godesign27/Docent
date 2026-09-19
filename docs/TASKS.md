@@ -50,13 +50,14 @@ Open work across Docent, the UIContext agent and the repo connector. Updated 202
 
 ## UIContext agent
 
-- **Phase 1's remaining exit check needs an API key.** The seeded test passes: a scripted model that invents a component, a token and an import path produces a file with none of them, three flags and three Blocking questions. Drafting the Docent-TestSite dashboard for real needs `ANTHROPIC_API_KEY` in the environment.
 - Phase 2: completeness gate.
 - Phase 3: regeneration.
 - Phase 4: productize.
 
 ## Done recently
 
+- **UIContext agent Phase 1 is done**, both exit checks met: the seeded test (an invented component, token and import path never reach the file) and a real draft of the Docent-TestSite dashboard — 473 lines, every section filled, 24 components confirmed, 0 invented names, 7 Blocking and 8 Advisory questions, `blocked`. It found contradictions the intent-ux had not: the projects table never filters by the date range, and a typed future date is applied while the calendar blocks it.
+- An org-level Anthropic key needs `ANTHROPIC_WORKSPACE_ID`; the model layer now sends `anthropic-workspace-id` when it is set.
 - UIContext agent Phase 1: the draft pass (Claude behind a small `Model` interface, so tests run scripted and free), rendering every design-system table from evidence, and the claim lint that replaces an unconfirmed name with `UNKNOWN`, records it in `flags.json` and raises a Blocking question pointing at the prototype.
 - The UIContext templates now point agents at Docent's real `ask` call instead of the four tool names Docent doesn't have.
 - AWS EC2 deployment kit written (`deploy/aws-ec2/`): non-root Dockerfile, bootstrap, IAM policies, Bitbucket Pipelines with OIDC and SSM deploys, install guide, agent instructions and IT brief.
