@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { Evidence } from "./evidence.js";
 import type { Inputs } from "./inputs.js";
 import type { Model } from "./model.js";
+import { sectionsOf as sections, tableRows as rows } from "./prior.js";
 import type { Rendered } from "./render.js";
 
 export const GATE_PURPOSE = "gate";
@@ -113,6 +114,9 @@ export function runChecks(o: { inputs: Inputs; evidence: Evidence; rendered: Ren
   add("governance", "The prototype breaks no rule that rejects it or needs a reviewer", true, rejected.length === 0 && review.length === 0,
     rejected.length || review.length ? `${[...rejected, ...review].map((g) => `${g.file}: ${g.outcome}`).join("; ")}.` : "Docent's rules are satisfied for every prototype file.");
 
+  add("answered-questions", "No question a person had answered has come back", false, rendered.reopened.length === 0,
+    rendered.reopened.length ? `${rendered.reopened.length} answered question(s) raised again; the answers are kept, but check they still hold.` : "Nothing a person answered has been raised again.");
+
   const blockingFlags = evidence.flags.filter((f) => f.severity === "blocking");
   add("evidence-clean", "Docent confirmed everything the prototype uses", true, blockingFlags.length === 0,
     blockingFlags.length ? `${blockingFlags.length} blocking flag(s): ${blockingFlags.slice(0, 3).map((f) => f.kind).join(", ")}.` : "No blocking flags.");
@@ -181,22 +185,4 @@ export function applyGate(markdown: string, result: GateResult): string {
   return `${withStatus.slice(0, anchor)}\n\n${lines.join("\n")}\n${withStatus.slice(anchor)}`;
 }
 
-function sections(markdown: string): Map<string, string> {
-  const out = new Map<string, string>();
-  const headings = [...markdown.matchAll(/^#{1,3} +(.+?) *$/gm)];
-  headings.forEach((m, i) => {
-    const start = m.index! + m[0].length;
-    const end = i + 1 < headings.length ? headings[i + 1]!.index! : markdown.length;
-    out.set(m[1]!, markdown.slice(start, end).trim());
-  });
-  return out;
-}
 
-/** Body rows of the first markdown table in a section, as cells. */
-function rows(section: string): string[][] {
-  return section
-    .split("\n")
-    .filter((l) => /^\s*\|/.test(l) && !/^\s*\|[\s:|-]+\|\s*$/.test(l))
-    .slice(1)
-    .map((l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim()));
-}

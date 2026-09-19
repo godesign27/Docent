@@ -18,6 +18,7 @@ import { type GateResult, applyGate, gate } from "./gate.js";
 import { Evidence, gatherEvidence } from "./evidence.js";
 import { handoffName, loadDocument, loadPrototype } from "./inputs.js";
 import { ClaudeModel, ModelUnavailable } from "./model.js";
+import { loadPrior } from "./prior.js";
 import { flagsFile, render } from "./render.js";
 
 const DOCENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -131,7 +132,12 @@ async function main(): Promise<number> {
     throw err;
   }
 
-  const rendered = render({ inputs: full, evidence, draft, now, route: values.route, prototypeSource: basename(root) });
+  const outDir = resolve(values["out-dir"] ?? dirname(resolve(values["intent-ux"]!)));
+  const file = join(outDir, full.name.uicontext);
+  const prior = loadPrior(file);
+  if (prior) console.log(`Regenerating ${basename(file)}: answers, sign-offs and sections marked <!-- human --> are carried forward.`);
+
+  const rendered = render({ inputs: full, evidence, draft, now, route: values.route, prototypeSource: basename(root), prior });
 
   // The drafter does not grade its own draft: a second pass decides the status.
   let gated: GateResult;
@@ -145,8 +151,6 @@ async function main(): Promise<number> {
     throw err;
   }
 
-  const outDir = resolve(values["out-dir"] ?? dirname(resolve(values["intent-ux"]!)));
-  const file = join(outDir, full.name.uicontext);
   writeFile(file, applyGate(rendered.markdown, gated));
   writeFile(join(outDir, "flags.json"), `${JSON.stringify(flagsFile(rendered, evidence, full, now, gated), null, 2)}\n`);
   if (!reuse && values.evidence) writeFile(resolve(values.evidence), `${JSON.stringify(evidence, null, 2)}\n`);
@@ -204,6 +208,10 @@ function printDraft(rendered: ReturnType<typeof render>, gated: GateResult, e: E
   for (const finding of gated.grader?.findings ?? []) console.log(`    ${finding.severity === "blocking" ? "✖" : "!"} grader — ${finding.section}: ${finding.finding}`);
   console.log(`  Questions:      ${rendered.questions.filter((q) => q.priority === "Blocking").length} blocking, ${rendered.questions.filter((q) => q.priority === "Advisory").length} advisory`);
   console.log(`  Unconfirmed claims replaced with UNKNOWN: ${rendered.unconfirmed.length}`);
+  if (rendered.changes.length || rendered.carriedResolutions || rendered.reopened.length) {
+    console.log(`  Since the last draft: ${rendered.changes.length} factual change(s), ${rendered.carriedResolutions} answer(s) carried forward, ${rendered.reopened.length} answered question(s) raised again`);
+    for (const change of rendered.changes.slice(0, 8)) console.log(`    · ${change.section}: ${change.kind} ${change.key}`);
+  }
   for (const u of rendered.unconfirmed) console.log(`    ✖ ${u.flag} ${u.field} (the name is in flags.json)`);
   console.log(`  Wrote ${file} and flags.json in ${(ms / 1000).toFixed(1)}s`);
 }

@@ -11,6 +11,7 @@ import type { Draft } from "./draft.js";
 import type { GateResult } from "./gate.js";
 import type { ComponentEvidence, Evidence, Flag } from "./evidence.js";
 import type { HandoffName, Inputs } from "./inputs.js";
+import { type Change, type Prior, applyHumanSections, diffFactual, normalise } from "./prior.js";
 
 export interface Unconfirmed {
   /** Where in the draft it was written, e.g. "annotations[2].behavior". */
@@ -33,6 +34,11 @@ export interface Rendered {
   questions: Question[];
   unconfirmed: Unconfirmed[];
   status: "draft" | "blocked";
+  /** Empty on a first draft: what the factual tables gained, lost or changed since the prior file. */
+  changes: Change[];
+  /** Questions a person had answered that this run raises again. */
+  reopened: string[];
+  carriedResolutions: number;
 }
 
 export interface RenderOptions {
@@ -42,6 +48,8 @@ export interface RenderOptions {
   now: Date;
   route?: string;
   prototypeSource?: string;
+  /** The file already on disk, when this is a regeneration. */
+  prior?: Prior | null;
 }
 
 /** Words that look like component names but are ordinary prose. */
@@ -137,16 +145,22 @@ export function render(options: RenderOptions): Rendered {
     });
   }
 
+  // --- What a person already wrote, carried across untouched -----------------------------------
+  const prior = options.prior ?? null;
+  const resolutions = questions.map((q) => prior?.questions.get(normalise(q.question))?.resolution ?? "");
+  const reopened = questions.filter((_, i) => resolutions[i]).map((q) => q.question);
+
   const status: Rendered["status"] = questions.some((q) => q.priority === "Blocking") ? "blocked" : "draft";
   const inventory = componentRows(evidence);
-  const meta = metadata({ inputs, evidence, now, route: options.route, prototypeSource: options.prototypeSource, status });
+  const meta = metadata({ inputs, evidence, now, route: options.route, prototypeSource: options.prototypeSource, status, reviewer: prior?.approvals.reviewer });
 
   const md: string[] = [];
   const push = (...lines: string[]) => md.push(...lines);
   const rule = () => push("", "---", "");
 
   push(`# UI context — ${featureTitle(inputs)}`, "");
-  push("```yaml", "handoff:", "  version: 1.0", `  status: ${status}`, `  approved_design_version: "UNKNOWN"`, "  approved_by:", "    product: UNKNOWN", "    ux: UNKNOWN", "    engineering: pending", "```", "");
+  const approved = prior?.approvals;
+  push("```yaml", "handoff:", "  version: 1.0", `  status: ${status}`, `  approved_design_version: "${approved?.designVersion || "UNKNOWN"}"`, "  approved_by:", `    product: ${approved?.product || "UNKNOWN"}`, `    ux: ${approved?.ux || "UNKNOWN"}`, `    engineering: ${approved?.engineering || "pending"}`, "```", "");
   push(`<!-- Instance: ${name.uicontext}`, `     Read ${name.intentUx} first.`, `     Drafted by the UIContext agent against ${evidence.docent.client.name}; every design-system name below was confirmed through Docent.`, `     Designed UI is the prototype; gaps stay UNKNOWN / not designed. -->`, "");
   push("## File naming", "", "```", "{product}_{feature}_{id}_uicontext.md", "```", "", `Shared prefix with \`${name.intentUx}\`.`);
   rule();
@@ -228,8 +242,8 @@ export function render(options: RenderOptions): Rendered {
   push("## Missing context", "", missingContext.length ? table(["Item", "In prototype?", "Production need", "Owner"], missingContext.map((m) => [m.item, m.inPrototype, m.productionNeed, m.owner])) : "_None recorded._");
   rule();
 
-  push("## Open questions", "", questions.length ? table(["#", "Priority", "Question", "Detail", "Resolution path"], questions.map((q, i) => [`Q-${i + 1}`, q.priority, q.question, q.detail, q.resolutionPath])) : "_None._", "");
-  push("_Priority is `Blocking` or `Advisory`. A `Blocking` question keeps `handoff.status` from being set to `ready`._");
+  push("## Open questions", "", questions.length ? table(["#", "Priority", "Question", "Detail", "Resolution path", "Resolution"], questions.map((q, i) => [`Q-${i + 1}`, q.priority, q.question, q.detail, q.resolutionPath, resolutions[i] ?? ""])) : "_None._", "");
+  push("_Priority is `Blocking` or `Advisory`. A `Blocking` question keeps `handoff.status` from being set to `ready`. Write answers in the **Resolution** column: a regeneration carries them forward and never overwrites them._");
   rule();
 
   push("## Downloads / export artifacts", "", table(["Artifact", "Path", "Description"], [["This file", `\`${name.uicontext}\``, "Canonical uicontext"], ["Intent-ux", `\`${name.intentUx}\``, "Why / who / jobs"], ["Flags", "`flags.json`", "Every unconfirmed claim, with the Docent requests behind the confirmations"]]));
@@ -244,7 +258,15 @@ export function render(options: RenderOptions): Rendered {
   push("# Addendum", "", "## Feature size", "", `This instance is **${inputs.intentUx.fields["Feature size"] ?? "UNKNOWN"}**, from ${name.intentUx}.`, "");
   push("## Completeness check", "", "1. Filename matches `{product}_{feature}_{id}_uicontext.md` and the paired intent-ux exists.", "2. Every component and token cited has been confirmed via Docent or is marked UNKNOWN with a logged open question.", "3. State coverage includes explicit ○ rows for anything not designed.", "4. No Blocking open questions remain if `handoff.status: ready`.", "5. This file is not a substitute for `implementation-plan.md`.", "");
 
-  return { markdown: `${md.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`, flags, questions, unconfirmed, status };
+  let markdown = `${md.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
+  let changes: Change[] = [];
+  if (prior) {
+    // The factual tables are regenerated; what moved is reported rather than quietly replaced.
+    changes = diffFactual(prior, markdown);
+    markdown = insertChanges(markdown, changesSection(changes, reopened, prior));
+    markdown = applyHumanSections(markdown, prior);
+  }
+  return { markdown, flags, questions, unconfirmed, status, changes, reopened, carriedResolutions: resolutions.filter(Boolean).length };
 }
 
 /** Everything Docent confirmed, by the exact strings a draft is allowed to use. */
@@ -280,6 +302,18 @@ const ALIAS_PATH = /@\/[\w./-]+/g;
 const CODE_SPAN = /`([^`]+)`/g;
 const UTILITY_IN_CODE = /^!?-?[a-z][a-z0-9]*(?:[:-][a-z0-9.[\]/-]+)+$/;
 
+/**
+ * Hyphenated lowercase names the web platform owns, not the design system. They have the shape of a
+ * utility class, so without this the lint replaces an accessibility attribute with UNKNOWN and
+ * blocks the file over it.
+ */
+const PLATFORM_NAME = /^(?:aria|data)-/;
+const CSS_PROPERTY = new Set([
+  "align-items", "aspect-ratio", "background-color", "border-radius", "box-shadow", "flex-direction", "font-family", "font-size", "font-weight",
+  "grid-template-columns", "justify-content", "letter-spacing", "line-height", "max-height", "max-width", "min-height", "min-width", "object-fit",
+  "overflow-x", "overflow-y", "pointer-events", "text-align", "text-overflow", "white-space", "word-break", "z-index",
+]);
+
 /** Replaces every design-system-shaped name the evidence doesn't contain with UNKNOWN. */
 export function lintClaims(value: string, confirmed: Set<string>): { text: string; names: string[] } {
   const candidates = new Set<string>();
@@ -292,6 +326,7 @@ export function lintClaims(value: string, confirmed: Set<string>): { text: strin
   }
   for (const m of value.matchAll(CODE_SPAN)) {
     const inner = m[1]!.trim();
+    if (PLATFORM_NAME.test(inner) || CSS_PROPERTY.has(inner)) continue;
     if (UTILITY_IN_CODE.test(inner) || inner.startsWith("--") || inner.startsWith("@/")) candidates.add(inner);
   }
 
@@ -386,7 +421,7 @@ function propRows(e: Evidence): string[][] {
   return rows;
 }
 
-function metadata(o: { inputs: Inputs; evidence: Evidence; now: Date; route?: string; prototypeSource?: string; status: string }): string[][] {
+function metadata(o: { inputs: Inputs; evidence: Evidence; now: Date; route?: string; prototypeSource?: string; status: string; reviewer?: string }): string[][] {
   const { inputs, evidence } = o;
   const story = inputs.story.data as Record<string, string>;
   const intent = inputs.intentUx.fields;
@@ -408,7 +443,7 @@ function metadata(o: { inputs: Inputs; evidence: Evidence; now: Date; route?: st
     ["Design system", `${evidence.docent.client.name}, queried via Docent — contract \`${evidence.docent.contractHash.slice(0, 19)}…\`${evidence.docent.sourceCommit ? `, source \`${evidence.docent.sourceCommit.slice(0, 8)}\`` : ""}`],
     ["Companion implementation-plan", `Engineering fills \`${inputs.name.implementationPlan}\``],
     ["Author", "UX (UIContext agent)"],
-    ["Reviewer / owner", "UNKNOWN"],
+    ["Reviewer / owner", value(o.reviewer)],
     ["Last updated", o.now.toISOString().slice(0, 10)],
     ["Status", `\`${o.status}\``],
   ];
@@ -442,9 +477,34 @@ export function flagsFile(rendered: Rendered, evidence: Evidence, inputs: Inputs
       advisory: rendered.flags.filter((f) => f.severity === "advisory").length,
       unconfirmedClaims: rendered.unconfirmed.length,
       blockingQuestions: rendered.questions.filter((q) => q.priority === "Blocking").length,
+      factualChanges: rendered.changes.length,
+      carriedResolutions: rendered.carriedResolutions,
+      reopenedQuestions: rendered.reopened.length,
     },
+    changes: rendered.changes,
+    reopenedQuestions: rendered.reopened,
     unconfirmedClaims: rendered.unconfirmed,
     flags: rendered.flags,
     openQuestions: rendered.questions,
   };
+}
+
+/** The revision note a regeneration adds: what changed in the evidence, and what a person should re-read. */
+function changesSection(changes: Change[], reopened: string[], prior: Prior): string {
+  const lines: string[] = [];
+  lines.push(changes.length
+    ? table(["Section", "Change", "Item", "Detail"], changes.map((c) => [c.section, c.kind, c.key, c.detail]))
+    : "_Nothing the design system provides has changed since the last draft._");
+  if (reopened.length) {
+    lines.push("", "**Answered questions this draft raises again.** Your answers are kept in the Resolution column; check they still hold.", "", ...reopened.map((q) => `- ${q}`));
+  }
+  const kept = [...prior.humanSections.keys()];
+  if (kept.length) lines.push("", `Carried forward untouched: ${kept.map((k) => `**${k}**`).join(", ")}, plus every answer in the Resolution column and the sign-offs above.`);
+  return lines.join("\n");
+}
+
+function insertChanges(markdown: string, block: string): string {
+  const anchor = markdown.indexOf("\n## Agent briefing index");
+  const section = `\n## Changes since last draft\n\n${block}\n\n---\n`;
+  return anchor === -1 ? `${markdown}${section}` : `${markdown.slice(0, anchor)}\n${section}${markdown.slice(anchor)}`;
 }

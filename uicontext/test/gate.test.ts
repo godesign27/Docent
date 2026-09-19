@@ -61,6 +61,7 @@ describe("a clean draft", () => {
       "size-sections",
       "no-blocking-questions",
       "governance",
+      "answered-questions",
       "evidence-clean",
     ]);
   });
@@ -150,7 +151,7 @@ describe("the report", () => {
     const { rendered, result, markdown } = await run(GOOD_DRAFT, advisory);
     const report = flagsFile(rendered, evidence, inputs, NOW, result);
     expect(report.handoff.status).toBe("ready");
-    expect(report.gate!.checks).toHaveLength(9);
+    expect(report.gate!.checks).toHaveLength(10);
     expect(report.gate!.grader!.findings[0]!.check).toBe("question-priority");
     expect(report.gate!.grader!.model).toBe("scripted");
     expect(markdown).toContain("> - ! 1 advisory finding(s) from the grader");

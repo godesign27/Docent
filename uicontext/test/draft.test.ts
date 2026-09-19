@@ -143,6 +143,15 @@ describe("the claim lint", () => {
     expect(flags.handoff).toEqual({ file: "acme_reports_acme-7_uicontext.md", status: "blocked" });
   });
 
+  it("lets the web platform's own names through: an ARIA attribute is not a design-system claim", () => {
+    const confirmed = confirmedNames(evidence);
+    for (const text of ["The launcher exposes `aria-expanded`.", "The panel is named by `aria-labelledby`.", "Each row carries `data-state`.", "The container sets a `max-width`."]) {
+      expect(lintClaims(text, confirmed).names, text).toEqual([]);
+    }
+    // A utility class the prototype never uses is still a claim, and still goes.
+    expect(lintClaims("Spacing uses `gap-99`.", confirmed).names).toEqual(["gap-99"]);
+  });
+
   it("lets through what Docent confirmed, prose, and framework utilities the design system doesn't own", () => {
     const confirmed = confirmedNames(evidence);
     for (const text of ["Button opens the Dialog.", "Spacing uses `gap-4`, a framework default.", "The colour comes from `--primary`.", "ReportCard is the prototype's own component.", "Written in TypeScript."]) {

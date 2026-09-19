@@ -2,7 +2,7 @@
 
 Drafts `{product}_{feature}_{id}_uicontext.md` from a finished prototype, and confirms every design-system claim against [Docent](../README.md) before writing it down. See the [PRD](../prd/uicontext-agent-prd.md) and the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
-**Status: Phases 0–2 built** — evidence, drafting, rendering with the claim lint, and the completeness gate. Regeneration (Phase 3) is still to come.
+**Status: Phases 0–3 built** — evidence, drafting, rendering with the claim lint, the completeness gate, and regeneration. Phase 4 (Jira fetch, CI mode, runbook) is still to come.
 
 The agent is not a model writing markdown. Code holds every design-system fact; the model only writes what code cannot:
 
@@ -57,6 +57,18 @@ Framework utilities Docent reports as defaults (`gap-3`) and the prototype's own
 The drafter never grades its own draft. After rendering, the gate runs **nine deterministic checks** — naming and the companion file, every design-system name confirmed, every `UNKNOWN` paired with a question, all four coverage groups filled, ○ rows present, the sections this feature's size requires, no Blocking questions, Docent's rules satisfied, and no blocking evidence flag — and then a **second model call with fresh context**, which sees the story, the intent-ux, the prototype and the rendered file, but nothing of how the draft was made. It judges what code cannot: whether ○ rows are honest, whether a state is missing entirely, whether an Advisory question should be Blocking, and whether the file describes UI that does not exist.
 
 Code alone sets `handoff.status`: `ready` requires every blocking check to pass and no blocking finding; anything else is `blocked`. A short summary goes at the top of the file and the full report into `flags.json`.
+
+## Re-running it
+
+A second run reads the file already on disk and treats it as a person's work, not as output to replace:
+
+| Kept, byte for byte | Re-derived, with the difference reported |
+|---|---|
+| Answers written in the **Resolution** column of Open questions | Component inventory, design tokens, utility classes, props API |
+| Any section whose body starts with `<!-- human -->`, including sections you added yourself | The judgment sections, from the new draft |
+| `approved_design_version`, `approved_by` and the reviewer | |
+
+What moved appears in `## Changes since last draft` and in `flags.json`, keyed by name so a renumbered evidence id is not mistaken for a change. A question you had answered that the new draft raises again is listed there too, with your answer intact — the prototype may still disagree with the decision.
 
 The model is reached through a small `Model` interface, so tests run against a scripted model and cost nothing.
 
